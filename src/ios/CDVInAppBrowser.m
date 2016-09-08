@@ -421,10 +421,80 @@
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                                       messageAsDictionary:@{@"type":@"loadstop", @"url":url}];
         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
     }
 }
+
+- (void)sendPollResult:(NSString*)data
+{
+    if (self.callbackId != nil)
+    {
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"type":@"pollresult", @"data":data}];
+        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+    }
+}
+
+NSTimer *PollTimer;
+CDVInvokedUrlCommand *Command;
+
+- (void)stopTimer
+{
+    [PollTimer invalidate];
+    PollTimer = nil;
+}
+
+-(void)onPollTick:(NSTimer *)timer {
+    if(Command !=nil )
+    {
+        NSString *jsWrapper = @"_cdvIframeBridge.src=JSON.stringify([eval(%@)])";
+        NSString *jsToExecute = [NSString stringWithFormat:jsWrapper,[Command argumentAtIndex:0]];
+
+        [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:@"(function(d){_cdvIframeBridge=d.getElementById('_cdvIframeBridge');if(!_cdvIframeBridge) {var e = _cdvIframeBridge = d.createElement('iframe');e.id='_cdvIframeBridge'; e.style.display='none';d.body.appendChild(e);}})(document)"];
+        NSString* result = [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:jsToExecute];
+
+        NSData *jsonData = [result dataUsingEncoding:NSUTF8StringEncoding];
+        NSError *error;
+
+        id jsonObject = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (!error && [jsonObject isKindOfClass:[NSArray class]])
+        {
+            NSArray * array = (NSArray *) jsonObject;
+
+            id actionId = [array[0] valueForKey: @"InAppBrowserAction"];
+
+            if([actionId isKindOfClass:[NSString class]])
+            {
+                NSString *action = (NSString *)actionId;
+                if(action !=nil && [action caseInsensitiveCompare:@"close"] == NSOrderedSame)
+                {
+                    [self stopTimer];
+                    [self.inAppBrowserViewController close];
+                    return;
+                }
+            }
+        }
+        [self sendPollResult:result];
+    }
+}
+
+- (void)startPoll:(CDVInvokedUrlCommand*)command
+{
+    if(!PollTimer)
+    {
+        [self stopTimer];
+    }
+    Command = command;
+    NSTimeInterval interval = [command.arguments[1] doubleValue]/ 1000.0;
+    PollTimer = [NSTimer scheduledTimerWithTimeInterval:interval  target:self selector:@selector(onPollTick:) userInfo:nil repeats:YES];
+}
+
+- (void)stopPoll:(CDVInvokedUrlCommand*)command
+{
+    [self stopTimer];
+    Command = nil;
+}
+
 
 - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error
 {
