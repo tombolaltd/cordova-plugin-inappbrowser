@@ -33,6 +33,54 @@
 #define    FOOTER_HEIGHT ((TOOLBAR_HEIGHT) + (LOCATIONBAR_HEIGHT))
 
 #pragma mark CDVInAppBrowser
+@implementation CDVSystemBrowser
+
+const int INITIAL_STATUS_BAR_STYLE = -1;
+
+
+-(void) openUrl:(NSString*)url {
+        CDVPluginResult* pluginResult;
+
+    if (url != nil) {
+    #ifdef __CORDOVA_4_0_0
+        NSURL* baseUrl = [self.webViewEngine URL];
+    #else
+        NSURL* baseUrl = [self.webView.request URL];
+    #endif
+        NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
+    
+        if ([[UIApplication sharedApplication] canOpenURL:absoluteUrl]) {
+            [[UIApplication sharedApplication] openURL:absoluteUrl];
+        } else { 
+            // handle any custom schemes to plugins
+            [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:absoluteUrl]];
+        }
+    
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    } else {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
+    }
+
+    [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:[self callbackId]];
+}
+
+ - (void)open:(CDVInvokedUrlCommand*)command {
+    self.callbackId = command.callbackId;
+    NSString* url = [command argumentAtIndex:0];
+
+    __weak CDVSystemBrowser* weakSelf = self;
+
+    // Run later to avoid the "took a long time" log message.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf openUrl:url];
+    });
+}
+
+@end
+
+
+#pragma mark CDVInAppBrowser
 
 @interface CDVInAppBrowser () {
     NSInteger _previousStatusBarStyle;
@@ -41,84 +89,24 @@
 
 @implementation CDVInAppBrowser
 
-- (void)pluginInitialize
-{
-    _previousStatusBarStyle = -1;
+- (void)pluginInitialize {
+    _previousStatusBarStyle = INITIAL_STATUS_BAR_STYLE;
     _callbackIdPattern = nil;
 }
 
-- (void)onReset
-{
+- (void)onReset {
     [self close:nil];
 }
 
-- (void)close:(CDVInvokedUrlCommand*)command
-{
-    if (self.inAppBrowserViewController == nil) {
-        NSLog(@"IAB.close() called but it was already closed.");
-        return;
-    }
-    // Things are cleaned up in browserExit.
-    [self.inAppBrowserViewController close];
-}
+#pragma mark window-openers
 
-- (BOOL) isSystemUrl:(NSURL*)url
-{
-	if ([[url host] isEqualToString:@"itunes.apple.com"]) {
-		return YES;
-	}
-
-	return NO;
-}
-
-- (void)open:(CDVInvokedUrlCommand*)command
-{
-    CDVPluginResult* pluginResult;
-
-    NSString* url = [command argumentAtIndex:0];
-    NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
-    NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-
-    self.callbackId = command.callbackId;
-
-    if (url != nil) {
-#ifdef __CORDOVA_4_0_0
-        NSURL* baseUrl = [self.webViewEngine URL];
-#else
-        NSURL* baseUrl = [self.webView.request URL];
-#endif
-        NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
-
-        if ([self isSystemUrl:absoluteUrl]) {
-            target = kInAppBrowserTargetSystem;
-        }
-
-        if ([target isEqualToString:kInAppBrowserTargetSelf]) {
-            [self openInCordovaWebView:absoluteUrl withOptions:options];
-        } else if ([target isEqualToString:kInAppBrowserTargetSystem]) {
-            [self openInSystem:absoluteUrl];
-        } else { // _blank or anything else
-            [self openInInAppBrowser:absoluteUrl withOptions:options];
-        }
-
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    } else {
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
-    }
-
-    [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-}
-
-- (void)openInInAppBrowser:(NSURL*)url withOptions:(NSString*)options
-{
+- (void)openInInAppBrowser:(NSURL*)url withOptions:(NSString*)options {
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
 
     if (browserOptions.clearcache) {
         NSHTTPCookie *cookie;
         NSHTTPCookieStorage *storage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
-        for (cookie in [storage cookies])
-        {
+        for (cookie in [storage cookies]) {
             if (![cookie.domain isEqual: @".^filecookies^"]) {
                 [storage deleteCookie:cookie];
             }
@@ -128,8 +116,7 @@
     if (browserOptions.clearsessioncache) {
         NSHTTPCookie *cookie;
         NSHTTPCookieStorage *storage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
-        for (cookie in [storage cookies])
-        {
+        for (cookie in [storage cookies]) {
             if (![cookie.domain isEqual: @".^filecookies^"] && cookie.isSessionOnly) {
                 [storage deleteCookie:cookie];
             }
@@ -201,36 +188,9 @@
     }
 }
 
-- (void)show:(CDVInvokedUrlCommand*)command
-{
-    if (self.inAppBrowserViewController == nil) {
-        NSLog(@"Tried to show IAB after it was closed.");
-        return;
-    }
-    if (_previousStatusBarStyle != -1) {
-        NSLog(@"Tried to show IAB while already shown");
-        return;
-    }
 
-    _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
 
-    __block CDVInAppBrowserNavigationController* nav = [[CDVInAppBrowserNavigationController alloc]
-                                   initWithRootViewController:self.inAppBrowserViewController];
-    nav.orientationDelegate = self.inAppBrowserViewController;
-    nav.navigationBarHidden = YES;
-
-    __weak CDVInAppBrowser* weakSelf = self;
-
-    // Run later to avoid the "took a long time" log message.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (weakSelf.inAppBrowserViewController != nil) {
-            [weakSelf.viewController presentViewController:nav animated:YES completion:nil];
-        }
-    });
-}
-
-- (void)openInCordovaWebView:(NSURL*)url withOptions:(NSString*)options
-{
+- (void)openInCordovaWebView:(NSURL*)url withOptions:(NSString*)options {
     NSURLRequest* request = [NSURLRequest requestWithURL:url];
 
 #ifdef __CORDOVA_4_0_0
@@ -246,8 +206,7 @@
 #endif
 }
 
-- (void)openInSystem:(NSURL*)url
-{
+- (void)openInSystem:(NSURL*) url {
     if ([[UIApplication sharedApplication] canOpenURL:url]) {
         [[UIApplication sharedApplication] openURL:url];
     } else { // handle any custom schemes to plugins
@@ -255,94 +214,82 @@
     }
 }
 
-// This is a helper method for the inject{Script|Style}{Code|File} API calls, which
-// provides a consistent method for injecting JavaScript code into the document.
-//
-// If a wrapper string is supplied, then the source string will be JSON-encoded (adding
-// quotes) and wrapped using string formatting. (The wrapper string should have a single
-// '%@' marker).
-//
-// If no wrapper is supplied, then the source string is executed directly.
+#pragma mark view-open-and-close
 
-- (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper
-{
-    // Ensure an iframe bridge is created to communicate with the CDVInAppBrowserViewController
-    [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:@"(function(d){_cdvIframeBridge=d.getElementById('_cdvIframeBridge');if(!_cdvIframeBridge) {var e = _cdvIframeBridge = d.createElement('iframe');e.id='_cdvIframeBridge'; e.style.display='none';d.body.appendChild(e);}})(document)"];
 
-    if (jsWrapper != nil) {
-        NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
-        NSString* sourceArrayString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-        if (sourceArrayString) {
-            NSString* sourceString = [sourceArrayString substringWithRange:NSMakeRange(1, [sourceArrayString length] - 2)];
-            NSString* jsToInject = [NSString stringWithFormat:jsWrapper, sourceString];
-            [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:jsToInject];
+- (void)handlePollResult:(NSURL*) url {
+    if(![[url host] isEqualToString:@"poll"]) {
+        return;
+    }
+
+    NSString* scriptResult = [url path];
+    if ((scriptResult == nil) || ([scriptResult length] < 2)) {
+        return;
+    }
+
+    NSError* __autoreleasing error = nil;
+    scriptResult = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
+    NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+
+    if(error != nil || ![decodedResult isKindOfClass:[NSArray class]]){
+        NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
+        [self sendPollResult:scriptResult];
+        return;
+    }
+
+    NSArray * array = (NSArray *) decodedResult;
+    NSData* decodedAction = [array[0] valueForKey: @"InAppBrowserAction"];
+    if(decodedAction == nil  || ![decodedAction isKindOfClass:[NSString class]]) {
+        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty or non string action) - returning json directly to JS");
+        [self sendPollResult:scriptResult];
+        return;
+    }
+
+    NSString *action = (NSString *)decodedAction;
+    if(action ==nil) {
+        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
+        [self sendPollResult:scriptResult];
+        return;
+    }
+
+    if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
+        [self stopPolling];
+        [self.inAppBrowserViewController close];
+        return;
+    } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
+        [self hideView];
+        return;
+    } else {
+        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+        [self sendPollResult:scriptResult];
+    }
+
+}
+
+- (void)handleInjectedScriptCallBack:(NSURL*) url {
+    NSString* scriptCallbackId = [url host];
+    if (![self isValidCallbackId:scriptCallbackId]) {
+        return;
+    }
+
+    CDVPluginResult* pluginResult = nil;
+    NSString* scriptResult = [url path];
+    NSError* __autoreleasing error = nil;
+
+    // The message should be a JSON-encoded array of the result of the script which executed.
+    if ((scriptResult != nil) && ([scriptResult length] > 1)) {
+        scriptResult = [scriptResult substringFromIndex:1];
+        NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+        if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
+            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
+        } else {
+            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
         }
     } else {
-        [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:source];
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
     }
-}
-
-- (void)injectScriptCode:(CDVInvokedUrlCommand*)command
-{
-    NSString* jsWrapper = nil;
-
-    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
-        jsWrapper = [NSString stringWithFormat:@"_cdvIframeBridge.src='gap-iab://%@/'+encodeURIComponent(JSON.stringify([eval(%%@)]));", command.callbackId];
-    }
-    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
-}
-
-- (void)injectScriptFile:(CDVInvokedUrlCommand*)command
-{
-    NSString* jsWrapper;
-
-    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
-        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('script'); c.src = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
-    } else {
-        jsWrapper = @"(function(d) { var c = d.createElement('script'); c.src = %@; d.body.appendChild(c); })(document)";
-    }
-    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
-}
-
-- (void)injectStyleCode:(CDVInvokedUrlCommand*)command
-{
-    NSString* jsWrapper;
-
-    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
-        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('style'); c.innerHTML = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
-    } else {
-        jsWrapper = @"(function(d) { var c = d.createElement('style'); c.innerHTML = %@; d.body.appendChild(c); })(document)";
-    }
-    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
-}
-
-- (void)injectStyleFile:(CDVInvokedUrlCommand*)command
-{
-    NSString* jsWrapper;
-
-    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
-        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('link'); c.rel='stylesheet'; c.type='text/css'; c.href = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
-    } else {
-        jsWrapper = @"(function(d) { var c = d.createElement('link'); c.rel='stylesheet', c.type='text/css'; c.href = %@; d.body.appendChild(c); })(document)";
-    }
-    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
-}
-
-- (BOOL)isValidCallbackId:(NSString *)callbackId
-{
-    NSError *err = nil;
-    // Initialize on first use
-    if (self.callbackIdPattern == nil) {
-        self.callbackIdPattern = [NSRegularExpression regularExpressionWithPattern:@"^InAppBrowser[0-9]{1,10}$" options:0 error:&err];
-        if (err != nil) {
-            // Couldn't initialize Regex; No is safer than Yes.
-            return NO;
-        }
-    }
-    if ([self.callbackIdPattern firstMatchInString:callbackId options:0 range:NSMakeRange(0, [callbackId length])]) {
-        return YES;
-    }
-    return NO;
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
+    
 }
 
 /**
@@ -360,74 +307,101 @@
  * value to pass to the callback. [NSURL path] should take care of the URL-unescaping, and a JSON_EXCEPTION
  * is returned if the JSON is invalid.
  */
-- (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType
-{
+- (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType {
     NSURL* url = request.URL;
     BOOL isTopLevelNavigation = [request.URL isEqual:[request mainDocumentURL]];
 
     // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
     // and the path, if present, should be a JSON-encoded value to pass to the callback.
     if ([[url scheme] isEqualToString:@"gap-iab"]) {
-        NSString* scriptCallbackId = [url host];
-        CDVPluginResult* pluginResult = nil;
+        [self handleInjectedScriptCallBack: url];
+        return NO;
+    }
 
-        if ([self isValidCallbackId:scriptCallbackId]) {
-            NSString* scriptResult = [url path];
-            NSError* __autoreleasing error = nil;
-
-            // The message should be a JSON-encoded array of the result of the script which executed.
-            if ((scriptResult != nil) && ([scriptResult length] > 1)) {
-                scriptResult = [scriptResult substringFromIndex:1];
-                NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-                if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
-                    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
-                } else {
-                    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
-                }
-            } else {
-                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
-            }
-            [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
-            return NO;
-        }
+    // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
+    // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
+    // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
+    if([[url scheme] isEqualToString:@"gap-iab-native"]) {
+        [self handlePollResult:url];
+        return NO;
     } 
-    //if is an app store link, let the system handle it, otherwise it fails to load it
-    else if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
+
+    if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
+            //if is an app store link, let the system handle it, otherwise it fails to load it
         [theWebView stopLoading];
         [self openInSystem:url];
         return NO;
     }
-    else if ((self.callbackId != nil) && isTopLevelNavigation) {
-        // Send a loadstart event for each top-level navigation (includes redirects).
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
 
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+    if (isTopLevelNavigation) {
+        [self sendOKPluginResult:@{@"type":@"loadstart", @"url":[url absoluteString]}];
     }
 
     return YES;
 }
 
-- (void)webViewDidStartLoad:(UIWebView*)theWebView
+- (void)showWindow
 {
+    _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
+
+    __block CDVInAppBrowserNavigationController* nav = [[CDVInAppBrowserNavigationController alloc]
+                                   initWithRootViewController:self.inAppBrowserViewController];
+    nav.orientationDelegate = self.inAppBrowserViewController;
+    nav.navigationBarHidden = YES;
+
+    __weak CDVInAppBrowser* weakSelf = self;
+
+    // Run later to avoid the "took a long time" log message.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (weakSelf.inAppBrowserViewController != nil) {
+            [weakSelf.viewController presentViewController:nav animated:YES completion:nil];
+        }
+    });
 }
 
-- (void)webViewDidFinishLoad:(UIWebView*)theWebView
-{
-    if (self.callbackId != nil) {
-        // TODO: It would be more useful to return the URL the page is actually on (e.g. if it's been redirected).
-        NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"loadstop", @"url":url}];
+- (void)openUrl:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
+    //NOTE this no longer handles system directly - done in a different plugin in this package
+    CDVPluginResult* pluginResult;
+    if (url == nil) {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:[self callbackId]];
+        return;
     }
+
+#ifdef __CORDOVA_4_0_0
+    NSURL* baseUrl = [self.webViewEngine URL];
+#else
+    NSURL* baseUrl = [self.webView.request URL];
+#endif
+    NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
+
+    if ([self isSystemUrl:absoluteUrl]) {
+        [self openInSystem:absoluteUrl];
+    }   else if ([target isEqualToString:kInAppBrowserTargetSelf]) {
+        [self openInCordovaWebView:absoluteUrl withOptions:options];
+    } else { 
+        // _blank or anything else
+        [self openInInAppBrowser:absoluteUrl withOptions:options];
+    }
+
+    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:[self callbackId]];
 }
 
-- (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error
-{
+#pragma mark callback-methods
+
+- (void)webViewDidStartLoad:(UIWebView*)theWebView {
+}
+
+- (void)webViewDidFinishLoad:(UIWebView*)theWebView {
+    NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
+    [self sendOKPluginResult:@{@"type":@"loadstop", @"url":url}];
+    [self notifyUnhidden];
+}
+
+- (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
     if (self.callbackId != nil) {
         NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
@@ -438,8 +412,7 @@
     }
 }
 
-- (void)browserExit
-{
+- (void)browserExit {
     if (self.callbackId != nil) {
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                                       messageAsDictionary:@{@"type":@"exit"}];
@@ -453,12 +426,246 @@
     self.inAppBrowserViewController = nil;
 
     if (IsAtLeastiOSVersion(@"7.0")) {
-        if (_previousStatusBarStyle != -1) {
+        if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
             [[UIApplication sharedApplication] setStatusBarStyle:_previousStatusBarStyle];
         }
     }
 
-    _previousStatusBarStyle = -1; // this value was reset before reapplying it. caused statusbar to stay black on ios7
+    _previousStatusBarStyle = INITIAL_STATUS_BAR_STYLE; // this value was reset before reapplying it. caused statusbar to stay black on ios7
+}
+
+#pragma mark utility-methods
+
+- (BOOL) isSystemUrl:(NSURL*)url {
+    if ([[url host] isEqualToString:@"itunes.apple.com"]) {
+        return YES;
+    }
+
+    return NO;
+}
+
+// This is a helper method for the inject{Script|Style}{Code|File} API calls, which
+// provides a consistent method for injecting JavaScript code into the document.
+//
+// If a wrapper string is supplied, then the source string will be JSON-encoded (adding
+// quotes) and wrapped using string formatting. (The wrapper string should have a single
+// '%@' marker).
+//
+// If no wrapper is supplied, then the source string is executed directly.
+
+- (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper {
+    // Ensure an iframe bridge is created to communicate with the CDVInAppBrowserViewController
+    [self ensureIFrameBridgeForCDVInAppBrowserViewController];
+    
+    if (jsWrapper != nil) {
+        NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
+        NSString* sourceArrayString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        if (sourceArrayString) {
+            NSString* sourceString = [sourceArrayString substringWithRange:NSMakeRange(1, [sourceArrayString length] - 2)];
+            NSString* jsToInject = [NSString stringWithFormat:jsWrapper, sourceString];
+            [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:jsToInject];
+        }
+    } else {
+        [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:source];
+    }
+}
+
+-(void)ensureIFrameBridgeForCDVInAppBrowserViewController
+{
+    [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:@"(function(d){_cdvIframeBridge=d.getElementById('_cdvIframeBridge');if(!_cdvIframeBridge) {var e = _cdvIframeBridge = d.createElement('iframe');e.id='_cdvIframeBridge'; e.style.display='none';d.body.appendChild(e);}})(document)"];
+}
+
+-(void)sendOKPluginResult:(NSDictionary*)messageAsDictionary {
+    if (self.callbackId != nil) {
+        // Send a loadstart event for each top-level navigation (includes redirects).
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                      messageAsDictionary:messageAsDictionary];
+        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+    }
+}
+
+- (BOOL)isValidCallbackId:(NSString *)callbackId {
+    NSError *err = nil;
+    // Initialize on first use
+    if (self.callbackIdPattern == nil) {
+        self.callbackIdPattern = [NSRegularExpression regularExpressionWithPattern:@"^InAppBrowser[0-9]{1,10}$" options:0 error:&err];
+        if (err != nil) {
+            // Couldn't initialize Regex; No is safer than Yes.
+            return NO;
+        }
+    }
+    if ([self.callbackIdPattern firstMatchInString:callbackId options:0 range:NSMakeRange(0, [callbackId length])]) {
+        return YES;
+    }
+    return NO;
+}
+
+#pragma mark show-hide
+
+BOOL unHiding = NO;
+
+-(void)notifyUnhidden {
+    //Called back from webViewDidFinishLoad 
+    if(unHiding) {
+        [self showWindow];
+        [self sendOKPluginResult:@{@"type":@"unhidden"}];
+        unHiding = NO;
+    }
+}
+
+-(void)hideView
+{
+    [self sendOKPluginResult:@{@"type":@"preventexitonhide"}];
+    [self stopPolling];
+    [self sendOKPluginResult:@{@"type":@"hidden"}];
+    [self.inAppBrowserViewController close]; //This must come after the hide callback - otherwise it isn't fired
+}
+
+- (void)unHideView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
+    unHiding = YES;
+    [self openUrl:url targets:target withOptions:options];
+}
+
+#pragma mark polling
+
+NSTimer* pollTimer;
+
+-(void)onPollTick:(NSTimer *)timer {
+    NSString* pollCode = timer.userInfo;
+    if(pollCode != nil) {
+        NSString *jsWrapper = @"_cdvIframeBridge.src='gap-iab-native://poll/' + encodeURIComponent(JSON.stringify([eval(%@)]))";
+        [self injectDeferredObject:pollCode withWrapper:jsWrapper];
+    } else if (pollTimer != nil) {
+        NSLog(@"No JS code to execute");
+        [self stopPolling];
+    }
+}
+
+- (void)sendPollResult:(NSString*)data {
+    //Called from webView onload callback - the data is passed back from a hidden frame inside the browser window 
+    [self sendOKPluginResult:@{@"type":@"pollresult", @"data":data}];
+}
+
+-(void)startPolling:(NSString*)script interval:(NSTimeInterval)interval {
+    if(!pollTimer) {
+        [self stopPolling];
+    }
+    pollTimer = [NSTimer scheduledTimerWithTimeInterval:interval  target:self selector:@selector(onPollTick:) userInfo:script repeats:YES];
+}
+
+-(void)stopPolling {
+    if(pollTimer != nil) {
+        [pollTimer invalidate];
+    }
+    pollTimer = nil;
+}
+
+#pragma mark public-methods
+
+- (void)open:(CDVInvokedUrlCommand*)command {
+    NSString* url = [command argumentAtIndex:0];
+    NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+    self.callbackId = command.callbackId;
+    [self openUrl:url targets:target withOptions:options];
+}
+
+- (void)close:(CDVInvokedUrlCommand*)command {
+    if (self.inAppBrowserViewController == nil) {
+        NSLog(@"IAB.close() called but it was already closed.");
+        return;
+    }
+    [self stopPolling];
+    // Things are cleaned up in browserExit.
+    [self.inAppBrowserViewController close];
+}
+
+- (void)injectScriptCode:(CDVInvokedUrlCommand*)command {
+    NSString* jsWrapper = nil;
+
+    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
+        jsWrapper = [NSString stringWithFormat:@"_cdvIframeBridge.src='gap-iab://%@/'+encodeURIComponent(JSON.stringify([eval(%%@)]));", command.callbackId];
+    }
+    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
+}
+
+- (void)injectScriptFile:(CDVInvokedUrlCommand*)command {
+    NSString* jsWrapper;
+
+    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
+        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('script'); c.src = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
+    } else {
+        jsWrapper = @"(function(d) { var c = d.createElement('script'); c.src = %@; d.body.appendChild(c); })(document)";
+    }
+    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
+}
+
+- (void)injectStyleCode:(CDVInvokedUrlCommand*)command {
+    NSString* jsWrapper;
+
+    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
+        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('style'); c.innerHTML = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
+    } else {
+        jsWrapper = @"(function(d) { var c = d.createElement('style'); c.innerHTML = %@; d.body.appendChild(c); })(document)";
+    }
+    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
+}
+
+- (void)injectStyleFile:(CDVInvokedUrlCommand*)command {
+    NSString* jsWrapper;
+
+    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
+        jsWrapper = [NSString stringWithFormat:@"(function(d) { var c = d.createElement('link'); c.rel='stylesheet'; c.type='text/css'; c.href = %%@; c.onload = function() { _cdvIframeBridge.src='gap-iab://%@'; }; d.body.appendChild(c); })(document)", command.callbackId];
+    } else {
+        jsWrapper = @"(function(d) { var c = d.createElement('link'); c.rel='stylesheet', c.type='text/css'; c.href = %@; d.body.appendChild(c); })(document)";
+    }
+    [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
+}
+
+- (void)show:(CDVInvokedUrlCommand*)command
+{
+    if (self.inAppBrowserViewController == nil) {
+        NSLog(@"Tried to show IAB after it was closed.");
+        return;
+    }
+    if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
+        NSLog(@"Tried to show IAB while already shown");
+        return;
+    }
+
+    [self showWindow];
+}
+
+- (void)startPoll:(CDVInvokedUrlCommand*)command
+{   
+    if([command argumentAtIndex:0] == nil ||  [command argumentAtIndex:1] == nil) {
+        NSLog(@"Incorrect number of arguments passed to start polling");
+        return;
+    }
+
+    NSTimeInterval pollInterval = [command.arguments[1] doubleValue]/ 1000.0;
+    [self startPolling:[command argumentAtIndex:0] interval:pollInterval];
+}
+
+- (void)stopPoll:(CDVInvokedUrlCommand*)command
+{
+    [self stopPolling];
+} 
+
+- (void)hide:(CDVInvokedUrlCommand*)command
+{
+    [self hideView];
+}
+
+- (void)unHide:(CDVInvokedUrlCommand*)command {
+    
+    NSString* url = [command argumentAtIndex:0];
+    NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+
+    self.callbackId = command.callbackId;
+    [self unHideView:url targets:target withOptions:options];
 }
 
 @end
@@ -469,8 +676,7 @@
 
 @synthesize currentURL;
 
-- (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
-{
+- (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions {
     self = [super init];
     if (self != nil) {
         _userAgent = userAgent;
@@ -612,8 +818,7 @@
     [self.webView setFrame:frame];
 }
 
-- (void)setCloseButtonTitle:(NSString*)title
-{
+- (void)setCloseButtonTitle:(NSString*)title {
     // the advantage of using UIBarButtonSystemItemDone is the system will localize it for you automatically
     // but, if you want to set this yourself, knock yourself out (we can't set the title for a system Done button, so we have to create a new one)
     self.closeButton = nil;
@@ -626,8 +831,7 @@
     [self.toolbar setItems:items];
 }
 
-- (void)showLocationBar:(BOOL)show
-{
+- (void)showLocationBar:(BOOL)show {
     CGRect locationbarFrame = self.addressLabel.frame;
 
     BOOL toolbarVisible = !self.toolbar.hidden;
@@ -677,8 +881,7 @@
     }
 }
 
-- (void)showToolBar:(BOOL)show : (NSString *) toolbarPosition
-{
+- (void)showToolBar:(BOOL)show : (NSString *) toolbarPosition {
     CGRect toolbarFrame = self.toolbar.frame;
     CGRect locationbarFrame = self.addressLabel.frame;
 
@@ -738,20 +941,18 @@
     }
 }
 
-- (void)viewDidLoad
-{
+- (void)viewDidLoad {
     [super viewDidLoad];
 }
 
-- (void)viewDidUnload
-{
+- (void)viewDidUnload {
+    #pragma GCC diagnostic ignored "-Wnonnull"
     [self.webView loadHTMLString:nil baseURL:nil];
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
     [super viewDidUnload];
 }
 
-- (UIStatusBarStyle)preferredStatusBarStyle
-{
+- (UIStatusBarStyle)preferredStatusBarStyle {
     return UIStatusBarStyleDefault;
 }
 
@@ -759,8 +960,7 @@
     return NO;
 }
 
-- (void)close
-{
+- (void)close {
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
     self.currentURL = nil;
 
@@ -780,8 +980,7 @@
     });
 }
 
-- (void)navigateTo:(NSURL*)url
-{
+- (void)navigateTo:(NSURL*)url {
     NSURLRequest* request = [NSURLRequest requestWithURL:url];
 
     if (_userAgentLockToken != 0) {
@@ -796,18 +995,15 @@
     }
 }
 
-- (void)goBack:(id)sender
-{
+- (void)goBack:(id)sender {
     [self.webView goBack];
 }
 
-- (void)goForward:(id)sender
-{
+- (void)goForward:(id)sender {
     [self.webView goForward];
 }
 
-- (void)viewWillAppear:(BOOL)animated
-{
+- (void)viewWillAppear:(BOOL)animated {
     if (IsAtLeastiOSVersion(@"7.0")) {
         [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
     }
@@ -836,8 +1032,7 @@
 
 #pragma mark UIWebViewDelegate
 
-- (void)webViewDidStartLoad:(UIWebView*)theWebView
-{
+- (void)webViewDidStartLoad:(UIWebView*)theWebView {
     // loading url, start spinner, update back/forward
 
     self.addressLabel.text = NSLocalizedString(@"Loading...", nil);
@@ -849,8 +1044,7 @@
     return [self.navigationDelegate webViewDidStartLoad:theWebView];
 }
 
-- (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType
-{
+- (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType {
     BOOL isTopLevelNavigation = [request.URL isEqual:[request mainDocumentURL]];
 
     if (isTopLevelNavigation) {
@@ -859,8 +1053,7 @@
     return [self.navigationDelegate webView:theWebView shouldStartLoadWithRequest:request navigationType:navigationType];
 }
 
-- (void)webViewDidFinishLoad:(UIWebView*)theWebView
-{
+- (void)webViewDidFinishLoad:(UIWebView*)theWebView {
     // update url, stop spinner, update back/forward
 
     self.addressLabel.text = [self.currentURL absoluteString];
@@ -888,8 +1081,7 @@
     [self.navigationDelegate webViewDidFinishLoad:theWebView];
 }
 
-- (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error
-{
+- (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
     // log fail message, stop spinner, update back/forward
     NSLog(@"webView:didFailLoadWithError - %ld: %@", (long)error.code, [error localizedDescription]);
 
@@ -904,16 +1096,14 @@
 
 #pragma mark CDVScreenOrientationDelegate
 
-- (BOOL)shouldAutorotate
-{
+- (BOOL)shouldAutorotate {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotate)]) {
         return [self.orientationDelegate shouldAutorotate];
     }
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations
-{
+- (NSUInteger)supportedInterfaceOrientations {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(supportedInterfaceOrientations)]) {
         return [self.orientationDelegate supportedInterfaceOrientations];
     }
@@ -921,8 +1111,7 @@
     return 1 << UIInterfaceOrientationPortrait;
 }
 
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
-{
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotateToInterfaceOrientation:)]) {
         return [self.orientationDelegate shouldAutorotateToInterfaceOrientation:interfaceOrientation];
     }
@@ -934,8 +1123,7 @@
 
 @implementation CDVInAppBrowserOptions
 
-- (id)init
-{
+- (id)init {
     if (self = [super init]) {
         // default values
         self.location = YES;
@@ -957,8 +1145,7 @@
     return self;
 }
 
-+ (CDVInAppBrowserOptions*)parseOptions:(NSString*)options
-{
++ (CDVInAppBrowserOptions*)parseOptions:(NSString*)options {
     CDVInAppBrowserOptions* obj = [[CDVInAppBrowserOptions alloc] init];
 
     // NOTE: this parsing does not handle quotes within values
@@ -1033,16 +1220,14 @@
 
 #pragma mark CDVScreenOrientationDelegate
 
-- (BOOL)shouldAutorotate
-{
+- (BOOL)shouldAutorotate {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotate)]) {
         return [self.orientationDelegate shouldAutorotate];
     }
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations
-{
+- (NSUInteger)supportedInterfaceOrientations {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(supportedInterfaceOrientations)]) {
         return [self.orientationDelegate supportedInterfaceOrientations];
     }
@@ -1050,8 +1235,7 @@
     return 1 << UIInterfaceOrientationPortrait;
 }
 
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
-{
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotateToInterfaceOrientation:)]) {
         return [self.orientationDelegate shouldAutorotateToInterfaceOrientation:interfaceOrientation];
     }
@@ -1061,4 +1245,3 @@
 
 
 @end
-
