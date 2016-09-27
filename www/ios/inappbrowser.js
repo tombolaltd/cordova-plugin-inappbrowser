@@ -106,8 +106,6 @@
             'exit' : channel.create('exit')
         }
 
-
-
         me.isHidden = function(){
             return hidden;
         }
@@ -130,41 +128,42 @@
             hidden = false;
         }
 
-        me.startPoll = function(pollFunction, pollInterval){
-           lastPollIntervalToRestore = pollInterval;
-           lastPollFunctionToRestore = pollFunction;
-           exec(null, null, "InAppBrowser", "startPoll", [pollFunction, pollInterval])
-           polling = true;
-        }
-
-        me.stopPoll = function() {
-           exec(null, null, "InAppBrowser", "stopPoll", []);
-           clearPolling();
-           polling = false;
-        }
-
         me.hide = function(releaseResources, blankPage){
-            
+
             if(releaseResources){
                 me.stopPoll();
                 releaseListeners();
             }
 
-            // Release resources has no effect in native iOS - the IAB 
+            // Release resources has no effect in native iOS - the IAB
             // Is fully closed & the JS pretends it isn't
             exec(null,null,"InAppBrowser", "hide", [releaseResources]);
             hidden = true;
         }
 
         me.unHide = function(strUrl, eventname){
-
             if(strUrl){
-                lastUrl = urlutil.makeAbsolute(strUrl) || lastUrl;
+                lastUrl = urlutil.makeAbsolute(strUrl) || lastUrl || 'about:blank';
             }
 
             me.startPoll(lastPollFunctionToRestore, lastPollIntervalToRestore);
             exec(eventCallback, eventCallback, "InAppBrowser", "unHide", [lastUrl, lastWindowName, lastWindowFeatures]);
             hidden = false;
+        }
+
+        me.startPoll = function(pollFunction, pollInterval){
+            if(pollFunction && pollInterval){
+               lastPollIntervalToRestore = pollInterval;
+               lastPollFunctionToRestore = pollFunction;
+               exec(null, null, "InAppBrowser", "startPoll", [pollFunction, pollInterval])
+               polling = true;
+            }
+        }
+
+        me.stopPoll = function() {
+           exec(null, null, "InAppBrowser", "stopPoll", []);
+           clearPolling();
+           polling = false;
         }
 
         me.addEventListener = function (eventname,f) {
@@ -217,7 +216,7 @@
         strWindowFeatures = strWindowFeatures || "";
 
         if(strWindowName === '_system') {
-            // This is now separate as more-or-less fire and forget system browser was re-utilising 
+            // This is now separate as more-or-less fire and forget system browser was re-utilising
             // Code for blank/self. This caused problems with browser crashes etc.
             exec(null, null, "SystemBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
         } else {
