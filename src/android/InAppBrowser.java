@@ -50,6 +50,11 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.util.DisplayMetrics;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.graphics.Rect;
+import android.view.Display;
+import android.graphics.Point;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.Config;
@@ -84,7 +89,6 @@ interface NativeScriptResultHandler {
 
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
-
     private static final String NULL = "null";
     protected static final String LOG_TAG = "InAppBrowser";
     private static final String SELF = "_self";
@@ -105,6 +109,8 @@ public class InAppBrowser extends CordovaPlugin {
     private WebView inAppWebView;
     private EditText edittext;
     private CallbackContext callbackContext;
+    private OnGlobalLayoutListener list;
+    private View rootView;
     private boolean showLocationBar = true;
     private boolean showZoomControls = true;
     private boolean openWindowHidden = false;
@@ -240,7 +246,7 @@ public class InAppBrowser extends CordovaPlugin {
 
         if (action.equals("startPoll")) {
             if (args.isNull(0) || args.isNull(1)) {
-                Log.w(LOG_TAG, "Attempt to start poll with missin function or interval");
+                Log.w(LOG_TAG, "Attempt to start poll with missing function or interval");
                 return true;
             }
 
@@ -252,6 +258,64 @@ public class InAppBrowser extends CordovaPlugin {
 
         if (action.equals("stopPoll")) {
             stopPoll();
+            return true;
+        }
+
+        if (action.equals("init") && Build.VERSION.SDK_INT <= 19) {
+            cordova.getThreadPool().execute(new Runnable() {
+                public void run() {
+                    //calculate density-independent pixels (dp)
+                    //http://developer.android.com/guide/practices/screens_support.html
+                    DisplayMetrics dm = new DisplayMetrics();
+                    cordova.getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
+                    final float density = dm.density;
+
+                    //http://stackoverflow.com/a/4737265/1091751 detect if keyboard is showing
+                    rootView = cordova.getActivity().getWindow().getDecorView().findViewById(android.R.id.content).getRootView();
+                    list = new OnGlobalLayoutListener() {
+                        int previousHeightDiff = 0;
+
+                        @Override
+                        public void onGlobalLayout() {
+                            Rect r = new Rect();
+                            //r will be populated with the coordinates of your view that area still visible.
+                            rootView.getWindowVisibleDisplayFrame(r);
+
+                            // cache properties for later use
+                            int rootViewHeight = rootView.getRootView().getHeight();
+                            int resultBottom = r.bottom;
+
+                            // calculate screen height differently for android versions >= 21: Lollipop 5.x, Marshmallow 6.x
+                            //http://stackoverflow.com/a/29257533/3642890 beware of nexus 5
+                            int screenHeight;
+
+                            if (Build.VERSION.SDK_INT >= 21) {
+                                Display display = cordova.getActivity().getWindowManager().getDefaultDisplay();
+                                Point size = new Point();
+                                display.getSize(size);
+                                screenHeight = size.y;
+                            } else {
+                                screenHeight = rootViewHeight;
+                            }
+
+                            int heightDiff = screenHeight - resultBottom;
+
+                            int pixelHeightDiff = (int) (heightDiff / density);
+
+                            if (pixelHeightDiff > 100 && pixelHeightDiff != previousHeightDiff) { // if more than 100 pixels, its probably a keyboard...
+                                pausePoll();
+                            } else if (pixelHeightDiff != previousHeightDiff && (previousHeightDiff - pixelHeightDiff) > 100) {
+                                resumePoll();
+                            }
+
+                            previousHeightDiff = pixelHeightDiff;
+                        }
+                    };
+
+                    rootView.getViewTreeObserver().addOnGlobalLayoutListener(list);
+                }
+            });
+
             return true;
         }
 
@@ -274,7 +338,7 @@ public class InAppBrowser extends CordovaPlugin {
     private void resumePoll() {
         final String pollFunction = lastPollFunction;
         final long pollInterval = lastPollInterval;
-        if(pollFunction.equals("") || pollInterval == 0){
+        if (pollFunction.equals("") || pollInterval == 0) {
             return;
         }
 
@@ -486,7 +550,7 @@ public class InAppBrowser extends CordovaPlugin {
      * @return
      */
     private void hideDialog(final boolean releaseResources, final boolean goToBlank) {
-        if(hidden){
+        if (hidden) {
             return;
         }
         this.cordova.getActivity().runOnUiThread(new Runnable() {
@@ -539,7 +603,7 @@ public class InAppBrowser extends CordovaPlugin {
             hidden = false;
             showDialogue();
             resumePoll();
-            if(wasHidden) {
+            if (wasHidden) {
                 sendUnhiddenEvent();
             }
             return;
@@ -566,7 +630,7 @@ public class InAppBrowser extends CordovaPlugin {
                 }
 
                 resumePoll();
-                if(wasHidden) {
+                if (wasHidden) {
                     sendUnhiddenEvent();
                 }
             }
@@ -1224,13 +1288,13 @@ public class InAppBrowser extends CordovaPlugin {
                 showDialogue();
             }
 
-            if(url == BLANK_PAGE_URL) {
+            if (url == BLANK_PAGE_URL) {
                 destroyHistoryOnNextPageFinished = false;
             }
 
             super.onPageFinished(view, url);
 
-            if(url.equals(BLANK_PAGE_URL)) {
+            if (url.equals(BLANK_PAGE_URL)) {
                 destroyHistoryOnNextPageFinished = true;
             }
 
