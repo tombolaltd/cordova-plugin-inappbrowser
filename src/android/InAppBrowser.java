@@ -261,7 +261,7 @@ public class InAppBrowser extends CordovaPlugin {
             return true;
         }
 
-        if (action.equals("init") && Build.VERSION.SDK_INT <= 19) {
+        if (action.equals("init") && (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT)) {
             cordova.getThreadPool().execute(new Runnable() {
                 public void run() {
                     //calculate density-independent pixels (dp)
