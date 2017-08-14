@@ -266,7 +266,7 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
         return;
     }
 
-    
+
     NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
     [self handleNativeResultWithString:jsonString];
 
@@ -360,7 +360,10 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         if (weakSelf.inAppBrowserViewController != nil) {
-            [weakSelf.viewController presentViewController:nav animated:YES completion:nil];
+            UIView* inAppView = weakSelf.inAppBrowserViewController.view;
+            [weakSelf.viewController addChildViewController:weakSelf.inAppBrowserViewController];
+            [weakSelf.viewController.view addSubview:weakSelf.inAppBrowserViewController.view];
+            inAppView.transform = CGAffineTransformMakeTranslation(0, [UIApplication sharedApplication].statusBarFrame.size.height);
         }
     });
 }
@@ -416,7 +419,7 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     	//The callback is expecting a string as per inject script, this is wrapped in an outer array.
     	NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
     	[self handleNativeResultWithString: canonicalisedResponse];
-    }]; 
+    }];
 
     [self sendOKPluginResult:@{@"type":@"loadstop", @"url":url}];
     showing = NO;
@@ -984,10 +987,10 @@ BOOL canOpen = YES;
 
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
-        if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
-            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
-        } else {
-            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
+        if ([weakSelf parentViewController]) {
+            [weakSelf.view removeFromSuperview];
+            [weakSelf removeFromParentViewController];
+            weakSelf.view = nil;
         }
         unhiding = NO;
         showing = NO;
@@ -1265,7 +1268,7 @@ BOOL canOpen = YES;
 @end
 
 #pragma mark JavaScriptBridgeInterfaceObject
-@implementation JavaScriptBridgeInterfaceObject 
+@implementation JavaScriptBridgeInterfaceObject
 	void (^callbackFunction) (NSString*);
 
 	- (id)initWithCallback:(void (^)(NSString*))callbackBlock; {
