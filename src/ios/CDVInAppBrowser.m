@@ -1029,6 +1029,8 @@ BOOL canOpen = YES;
     [self rePositionViews];
 
     [super viewWillAppear:animated];
+
+    [self.webView setFrame:[[UIScreen mainScreen] bounds]];
 }
 
 //
