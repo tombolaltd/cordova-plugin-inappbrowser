@@ -428,6 +428,14 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
 
 - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
     if (self.callbackId != nil) {
+        if( [error code] == NSURLErrorCancelled ) {
+            // NSURLErrorCancelled (code 999 ) is considered benign: it happens when the page is navigated away from 
+            // while loading - as happens in Italy when waiting for the payment provider to acknowledge completion
+            // See http://iosdeveloperzone.com/tag/nsurlerrorcancelled/ "Suppressing Spurious Error Messages" for
+            // Explanation. Few sources cite this particular error as benign.
+            NSLog(@"IGNORED ERROR: %@", error); // Still log though!
+            return;
+        }
         NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
                                                       messageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
