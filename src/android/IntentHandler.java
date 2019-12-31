@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 import org.apache.cordova.LOG;
+import org.json.JSONObject;
 
 public final class IntentHandler {
     private static final String LOG_TAG = "InAppBrowser.IntentHandler";
