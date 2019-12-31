@@ -10,11 +10,7 @@ import org.apache.cordova.LOG;
 
 public final class IntentHandler {
     private static final String LOG_TAG = "InAppBrowser.IntentHandler";
-    private static String[] allowedSchemes;
-    private IntentHandler (){
-        String allowed = preferences.getString("AllowedSchemes", "");
-        IntentHandler.allowedSchemes = allowed.split(",");
-    }
+    private IntentHandler (){}
 
     public static Boolean dial(String url, Activity parentActivity){
         try {
@@ -72,17 +68,5 @@ public final class IntentHandler {
             LOG.e(LOG_TAG, "Error with " + url + ": " + e.toString());
             return false;
         }
-    }
-
-    public static Boolean customScheme(String url, BrowserEventSender eventSender) {
-        if (allowedSchemes != null && allowedSchemes.length != 0) {
-            for (String scheme : allowedSchemes) {
-                if (url.startsWith(scheme)) {
-                    eventSender.customScheme(url);
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }

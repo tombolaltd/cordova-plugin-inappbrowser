@@ -912,6 +912,7 @@ public class InAppBrowser extends CordovaPlugin {
     public class InAppBrowserClient extends WebViewClient {
         EditText edittext;
         CordovaWebView webView;
+        String[] allowedSchemes;
 
         /**
          * Constructor.
@@ -922,6 +923,22 @@ public class InAppBrowser extends CordovaPlugin {
         public InAppBrowserClient(CordovaWebView webView, EditText mEditText) {
             this.webView = webView;
             this.edittext = mEditText;
+            this.allowedSchemes = preferences.getString("AllowedSchemes", "").split(",");
+        }
+
+        /**
+         * Handles custom url schemes by sending customscheme events the local browser
+         */
+        public boolean handleCustomUrlScheme(String url) {
+            if (allowedSchemes != null && allowedSchemes.length != 0) {
+                for (String scheme : allowedSchemes) {
+                    if (url.startsWith(scheme)) {
+                        browserEventSender.customScheme(url);
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /**
@@ -945,7 +962,7 @@ public class InAppBrowser extends CordovaPlugin {
             }
             // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
             if (!url.startsWith("http:") && !url.startsWith("https:") && url.matches("^[a-z]*://.*?$")) {
-                return IntentHandler.customScheme(url, browserEventSender);
+                return handleCustomUrlScheme(url);
             }
             return false;
         }
