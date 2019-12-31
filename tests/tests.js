@@ -632,4 +632,30 @@ exports.defineManualTests = function (contentEl, createActionButton) {
     createActionButton('Anchor2', function () {
         doOpen(localhtml + '#anchor2', '_blank');
     }, 'openAnchor2');
+
+    // Customscheme
+    createActionButton('customscheme', function () {
+
+        var ref = cordova.InAppBrowser.open('about:blank', '_blank', 'hidden=yes' + 'usewkwebview=no');
+        var openedCustomscheme = false;
+        ref.addEventListener('loadstop', function (e) {
+            // Avoid showing the alert twice on iOS, since loadstop is also being called after the customscheme event.
+            if (!openedCustomscheme) {
+                openedCustomscheme = true;
+                ref.executeScript({ code: 'window.location.replace("custom://test");' });
+            }
+        });
+        ref.addEventListener('customscheme', function (e) {
+            if (e && e.url === 'custom://test') {
+                alert('Results verified'); // eslint-disable-line no-undef
+            } else {
+                alert('Got: ' + e.url); // eslint-disable-line no-undef
+            }
+            ref.close();
+        });
+        ref.addEventListener('loaderror', function (e) {
+            alert('Load error: ' + e.message + '\nYou may need to set the AllowedSchemes preference'); // eslint-disable-line no-undef
+            ref.close();
+        });
+    }, 'openCustomscheme');
 };

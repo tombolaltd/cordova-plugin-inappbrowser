@@ -47,7 +47,7 @@
 
         me.isHidden = function(){
             return hidden;
-        }
+        };
 
         me.channels = {
             'loadstart': channel.create('loadstart'),
@@ -57,27 +57,27 @@
             'unhidden' : channel.create('unhidden'),
             'bridgeresponse' : channel.create('bridgeresponse'),
             'exit' : channel.create('exit')
-        }
+        };
 
         me.close = function (eventname) {
             exec(null, null, "InAppBrowser", "close", []);
             hidden = false;
-        }
+        };
 
         me.show = function (eventname) {
             exec(null, null, "InAppBrowser", "show", []);
             hidden = false;
-        }
+        };
 
         me.hide = function (releaseResources, boolGoToBlank, eventname) {
             exec(null,null,"InAppBrowser", "hide", [releaseResources, boolGoToBlank]);
             hidden = true;
-        }
+        };
 
         me.unHide = function (strUrl, eventname) {
             exec(null,null,"InAppBrowser", "unHide", [strUrl]);
             hidden = false;
-        }
+        };
 
         me.update = function (strUrl, show) {
             exec(null,null,"InAppBrowser", "update", [strUrl, show]);
@@ -89,19 +89,19 @@
 
         me.bridge = function (objectName, bridgeFunction) {
             exec(null, null, "InAppBrowser", "bridge", [objectName, bridgeFunction]);
-        }
+        };
 
         me.addEventListener = function (eventname,f) {
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);
             }
-        }
+        };
 
         me.removeEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].unsubscribe(f);
             }
-        }
+        };
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -111,7 +111,7 @@
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        }
+        };
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -121,7 +121,7 @@
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
-        }
+        };
 
 
        for (var callbackName in callbacks) {
