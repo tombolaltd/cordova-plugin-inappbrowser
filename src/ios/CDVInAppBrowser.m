@@ -426,6 +426,21 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     [self notifyUnhidden];
 }
 
+- (BOOL)isAllowedScheme:(NSString*)scheme
+{
+    NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+    if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+        // Preference missing.
+        return NO;
+    }
+    for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+        if ([allowedScheme isEqualToString:scheme]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
     if (self.callbackId != nil) {
         if( [error code] == NSURLErrorCancelled ) {
@@ -441,6 +456,14 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
                                                       messageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
 
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+    }
+    //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+    else if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isAllowedScheme:[url scheme]]) {
+        // Send a customscheme event.
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                      messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
+        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
     }
 }
