@@ -945,7 +945,7 @@ public class InAppBrowser extends CordovaPlugin {
             }
             // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
             if (!url.startsWith("http:") && !url.startsWith("https:") && url.matches("^[a-z]*://.*?$")) {
-                return IntentHandler.customScheme(url, BrowserEventSender);
+                return IntentHandler.customScheme(url, browserEventSender);
             }
             return false;
         }
