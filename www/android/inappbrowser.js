@@ -56,7 +56,8 @@
             'hidden' : channel.create('hidden'),
             'unhidden' : channel.create('unhidden'),
             'bridgeresponse' : channel.create('bridgeresponse'),
-            'exit' : channel.create('exit')
+            'exit' : channel.create('exit'),
+            'customscheme' : channel.create('customscheme')
         };
 
         me.close = function (eventname) {
