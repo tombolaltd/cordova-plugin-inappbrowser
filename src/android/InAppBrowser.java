@@ -943,6 +943,10 @@ public class InAppBrowser extends CordovaPlugin {
             if (url.startsWith("sms:")) {
                 return IntentHandler.sms(url, cordova.getActivity());
             }
+            // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+            if (!url.startsWith("http:") && !url.startsWith("https:") && url.matches("^[a-z]*://.*?$")) {
+                return IntenetHandler.customScheme(url, cordova.getActivity());
+            }
             return false;
         }
 
