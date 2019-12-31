@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 import org.apache.cordova.LOG;
-import org.json.JSONObject;
 
 public final class IntentHandler {
     private static final String LOG_TAG = "InAppBrowser.IntentHandler";
@@ -75,19 +74,12 @@ public final class IntentHandler {
         }
     }
 
-    public static Boolean customScheme(String url, Activity parentActivity) {
+    public static Boolean customScheme(String url, BrowserEventSender eventSender) {
         if (allowedSchemes != null && allowedSchemes.length != 0) {
             for (String scheme : allowedSchemes) {
                 if (url.startsWith(scheme)) {
-                    try {
-                        JSONObject obj = new JSONObject();
-                        obj.put("type", "customscheme");
-                        obj.put("url", url);
-                        sendUpdate(obj, true);
-                        return true;
-                    } catch (JSONException ex) {
-                        LOG.e(LOG_TAG, "Custom Scheme URI passed in has caused a JSON error.");
-                    }
+                    eventSender.customScheme(url);
+                    return true;
                 }
             }
         }
