@@ -58,7 +58,7 @@ public class BrowserEventSender {
     public void customScheme(String url) {
         try {
             JSONObject responseObject = CreateResponse(CUSTOM_SCHEME_EVENT);
-            responseObject.put("data", url);
+            responseObject.put("url", url);
             pluginResultSender.ok(responseObject);
         } catch (JSONException ex) {
             Log.d(LOG_TAG, "Failed to build custom scheme result response object");
