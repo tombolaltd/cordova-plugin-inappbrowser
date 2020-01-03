@@ -302,8 +302,7 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
 
 }
 
-- (BOOL)isAllowedScheme:(NSString*)scheme
-{
+- (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
         // Preference missing.
@@ -344,7 +343,7 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     }
 
     //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
-    if (![[ url scheme] isEqualToString:@"http"] && ![[ url scheme] isEqualToString:@"https"] && [self isAllowedScheme:[url scheme]]) {
+    if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
         // Send a customscheme event.
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                                       messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];

@@ -60,9 +60,9 @@
             }
         }
 
-        backChannels.preventexitonhide.subscribe(function(){
+        backChannels['preventexitonhide'].subscribe(function(){
                 var exitHandlersToRestore = {},
-                exitChannel = me.channels.exit,
+                exitChannel = me.channels['exit'],
                 exitRestoreCallBack = function(){
                     // This cleans up the current handler
                     if(exitRestoreCallBack.observer_guid){
@@ -89,7 +89,7 @@
         });
 
         me.channels = {
-            'loadstart': channel.create('loadstart'),
+            'loadstart' : channel.create('loadstart'),
             'loadstop' : channel.create('loadstop'),
             'loaderror' : channel.create('loaderror'),
             'hidden' : channel.create('hidden'),
@@ -101,20 +101,20 @@
 
         me.isHidden = function(){
             return hidden;
-        };
+        }
 
         me.close = function(eventname) {
             exec(null, null, "InAppBrowser", "close", []);
             if(hidden){
-                me.channels.exit.fire();
+                me.channels['exit']fire();
             }
             hidden = false;
-        };
+        }
 
         me.show = function(eventname) {
             exec(null, null, "InAppBrowser", "show", []);
             hidden = false;
-        };
+        }
 
         me.hide = function(releaseResources, blankPage){
 
@@ -126,7 +126,7 @@
             // Is fully closed & the JS pretends it isn't
             exec(null,null,"InAppBrowser", "hide", [releaseResources]);
             hidden = true;
-        };
+        }
 
         me.unHide = function(strUrl, eventname){
             if(strUrl){
@@ -135,7 +135,7 @@
 
             exec(eventCallback, eventCallback, "InAppBrowser", "unHide", [lastUrl, lastWindowName, lastWindowFeatures]);
             hidden = false;
-        };
+        }
 
         me.update = function (strUrl, show) {
             if (strUrl) {
@@ -153,13 +153,13 @@
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);
             }
-        };
+        }
 
         me.removeEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].unsubscribe(f);
             }
-        };
+        }
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -169,7 +169,7 @@
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        };
+        }
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -179,14 +179,14 @@
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
-        };
+        }
 
         for (var callbackName in callbacks) {
             me.addEventListener(callbackName, callbacks[callbackName]);
         }
 
         exec(eventCallback, eventCallback, "InAppBrowser", "open", [lastUrl, lastWindowName, lastWindowFeatures]);
-    };
+    }
 
     module.exports = function(strUrl, strWindowName, strWindowFeatures, callbacks) {
         // Don't catch calls that write to existing frames (e.g. named iframes).
