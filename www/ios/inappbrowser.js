@@ -106,7 +106,7 @@
         me.close = function(eventname) {
             exec(null, null, "InAppBrowser", "close", []);
             if(hidden){
-                me.channels['exit']fire();
+                me.channels['exit'].fire();
             }
             hidden = false;
         }

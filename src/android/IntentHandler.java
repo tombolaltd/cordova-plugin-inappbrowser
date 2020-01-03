@@ -2,7 +2,6 @@ package org.apache.cordova.inappbrowser;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
@@ -10,7 +9,7 @@ import org.apache.cordova.LOG;
 
 public final class IntentHandler {
     private static final String LOG_TAG = "InAppBrowser.IntentHandler";
-    private IntentHandler (){}
+    private  IntentHandler (){ }
 
     public static Boolean dial(String url, Activity parentActivity){
         try {
