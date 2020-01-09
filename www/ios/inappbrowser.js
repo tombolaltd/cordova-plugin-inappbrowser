@@ -89,14 +89,15 @@
         });
 
         me.channels = {
-            'loadstart': channel.create('loadstart'),
+            'loadstart' : channel.create('loadstart'),
             'loadstop' : channel.create('loadstop'),
             'loaderror' : channel.create('loaderror'),
             'hidden' : channel.create('hidden'),
             'unhidden' : channel.create('unhidden'),
             'bridgeresponse' : channel.create('bridgeresponse'),
-            'exit' : channel.create('exit')
-        }
+            'exit' : channel.create('exit'),
+            'customscheme' : channel.create('customscheme')
+        };
 
         me.isHidden = function(){
             return hidden;

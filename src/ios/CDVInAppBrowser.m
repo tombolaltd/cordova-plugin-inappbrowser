@@ -94,6 +94,10 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     _callbackIdPattern = nil;
 }
 
+- (id)settingForKey:(NSString*)key {
+    return [self.commandDelegate.settings objectForKey:[key lowercaseString]];
+}
+
 - (void)onReset {
     [self close:nil];
 }
@@ -298,6 +302,20 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
 
 }
 
+- (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
+    NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+    if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+        // Preference missing.
+        return NO;
+    }
+    for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+        if ([allowedScheme isEqualToString:scheme]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 /**
  * The iframe bridge provided for the InAppBrowser is capable of executing any oustanding callback belonging
  * to the InAppBrowser plugin. Care has been taken that other callbacks cannot be triggered, and that no
@@ -321,6 +339,16 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     // and the path, if present, should be a JSON-encoded value to pass to the callback.
     if ([[url scheme] isEqualToString:@"gap-iab"]) {
         [self handleInjectedScriptCallBack: url];
+        return NO;
+    }
+
+    //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+    if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
+        // Send a customscheme event.
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                      messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
+        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
         return NO;
     }
 
@@ -424,6 +452,21 @@ const int INITIAL_STATUS_BAR_STYLE = -1;
     [self sendOKPluginResult:@{@"type":@"loadstop", @"url":url}];
     showing = NO;
     [self notifyUnhidden];
+}
+
+- (BOOL)isAllowedScheme:(NSString*)scheme
+{
+    NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+    if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+        // Preference missing.
+        return NO;
+    }
+    for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+        if ([allowedScheme isEqualToString:scheme]) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {

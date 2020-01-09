@@ -17,6 +17,7 @@ public class BrowserEventSender {
     private static final String HIDDEN_EVENT = "hidden";
     private static final String UNHIDDEN_EVENT = "unhidden";
     private static final String BRIDGE_RESPONSE_EVENT = "bridgeresponse";
+    private static final String CUSTOM_SCHEME_EVENT = "customscheme";
 
     private PluginResultSender pluginResultSender;
 
@@ -51,6 +52,16 @@ public class BrowserEventSender {
             pluginResultSender.ok(responseObject);
         } catch (JSONException ex) {
             Log.d(LOG_TAG, "Failed to build poll result response object");
+        }
+    }
+
+    public void customScheme(String url) {
+        try {
+            JSONObject responseObject = CreateResponse(CUSTOM_SCHEME_EVENT);
+            responseObject.put("url", url);
+            pluginResultSender.ok(responseObject);
+        } catch (JSONException ex) {
+            Log.d(LOG_TAG, "Failed to build custom scheme result response object");
         }
     }
 

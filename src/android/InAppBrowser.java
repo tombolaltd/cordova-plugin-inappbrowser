@@ -912,6 +912,7 @@ public class InAppBrowser extends CordovaPlugin {
     public class InAppBrowserClient extends WebViewClient {
         EditText edittext;
         CordovaWebView webView;
+        String[] allowedSchemes;
 
         /**
          * Constructor.
@@ -922,6 +923,28 @@ public class InAppBrowser extends CordovaPlugin {
         public InAppBrowserClient(CordovaWebView webView, EditText mEditText) {
             this.webView = webView;
             this.edittext = mEditText;
+            this.allowedSchemes = preferences.getString("AllowedSchemes", "").split(",");
+        }
+
+        /**
+         * Checks to see if the custom scheme supplied is whitelisted
+         */
+        private boolean isWhitelistedCustomScheme(String url) {
+            if (!url.matches("^[a-z]*://.*?$")) {
+                return false;
+            }
+
+            if (allowedSchemes == null || allowedSchemes.length == 0) {
+                return false;
+            }
+
+            for (String scheme : allowedSchemes) {
+                if (url.startsWith(scheme)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /**
@@ -934,6 +957,9 @@ public class InAppBrowser extends CordovaPlugin {
          */
         @Override
         public boolean shouldOverrideUrlLoading(WebView webView, String url) {
+            if(url.startsWith("http:") || url.startsWith("https:")) {
+                return false;
+            }
             if (url.startsWith(WebView.SCHEME_TEL)) {
                 return IntentHandler.dial(url, cordova.getActivity());
             }
@@ -942,6 +968,11 @@ public class InAppBrowser extends CordovaPlugin {
             }
             if (url.startsWith("sms:")) {
                 return IntentHandler.sms(url, cordova.getActivity());
+            }
+            // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+            if (isWhitelistedCustomScheme(url)) {
+                browserEventSender.customScheme(url);
+                return true;
             }
             return false;
         }
