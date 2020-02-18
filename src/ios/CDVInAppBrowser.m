@@ -1077,6 +1077,7 @@ BOOL canOpen = YES;
     if (IsAtLeastiOSVersion(@"7.0")) {
         [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
     }
+    [self.webView setFrame:[[UIScreen mainScreen] bounds]];
     [self rePositionViews];
 
     [super viewWillAppear:animated];
