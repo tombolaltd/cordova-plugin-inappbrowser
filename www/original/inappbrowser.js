@@ -19,6 +19,8 @@
  *
 */
 
+// NOTE: KPB - this is useful for reference so we know which changes were made....
+
 (function () {
     // special patch to correctly work on Ripple emulator (CB-9760)
     if (window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
