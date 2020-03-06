@@ -130,8 +130,6 @@
         }
 
         function eventHandler (event) {
-            console.log('*************** eventHandler');
-            console.log(event);
             if (event && (event.type in backChannels)) {
                 fireEvent(backChannels, event);
             }
@@ -141,9 +139,6 @@
         };
 
         function fireEvent(channels, event) {
-            console.log('*************** fireHandler');
-            console.log(channels);
-            console.log('***************');
             if(!channels){
                 return;
             }
@@ -152,13 +147,13 @@
             }
 
             if (event.type === 'beforeload') {
-                channels[event.type].fire(event, _loadAfterBeforeload);
+                channels[event.type].fire(event, loadAfterBeforeload);
             }
 
             channels[event.type].fire(event);
         }
 
-        function  _loadAfterBeforeload (strUrl) {
+        function  loadAfterBeforeload (strUrl) {
             strUrl = urlutil.makeAbsolute(strUrl);
             exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
         }
@@ -222,9 +217,7 @@
             // This is now separate as more-or-less fire and forget system browser was re-utilising
             // Code for blank/self. This caused problems with browser crashes etc.
             exec(null, null, "SystemBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
-            console.log('SYSTEM BROWSER');
         } else {
-            console.log('PUKKA IAB');
             return new InAppBrowser(strUrl, strWindowName, strWindowFeatures, callbacks || {});
         }
     };

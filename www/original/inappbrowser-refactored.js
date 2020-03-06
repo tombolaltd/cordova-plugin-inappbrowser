@@ -59,14 +59,14 @@
         };
 
         me.addEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].subscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].subscribe(f);
             }
         };
 
         me.removeEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].unsubscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].unsubscribe(f);
             }
         };
 
@@ -92,11 +92,11 @@
 
         // NOTE: this is meant to be private, but isn't, usual JS underscore foo "protecting" it...
         me._eventHandler  = function (event) {
-            if (event && (event.type in this.channels)) {
+            if (event && (event.type in me.channels)) {
                 if (event.type === 'beforeload') {
-                    this.channels[event.type].fire(event, _loadAfterBeforeload);
+                    me.channels[event.type].fire(event, _loadAfterBeforeload);
                 } else {
-                    this.channels[event.type].fire(event);
+                    me.channels[event.type].fire(event);
                 }
             }
         };
