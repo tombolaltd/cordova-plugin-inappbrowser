@@ -6,7 +6,7 @@
 // Copyright (c) Microsoft Open Technologies Inc
 // Licensed under the MIT license.
 // TypeScript Version: 2.3
-type channel = "loadstart" | "loadstop" | "loaderror" | "exit" | "message";
+type channel = "loadstart" | "loadstop" | "loaderror" | "exit" | "message" | "hidden" | "unhidden" | "bridgereponse" | "customscheme";
 
 interface Window {
     /**
@@ -56,6 +56,9 @@ interface InAppBrowser extends Window {
     close(): void;
     /** Hides the InAppBrowser window. Calling this has no effect if the InAppBrowser was already hidden. */
     hide(): void;
+
+    /** Unhides the InAppBrowser window. Calling this has no effect if the InAppBrowser was already visible. */
+    unhide(): void;
     /**
      * Displays an InAppBrowser window that was opened hidden. Calling this has no effect
      * if the InAppBrowser was already visible.
