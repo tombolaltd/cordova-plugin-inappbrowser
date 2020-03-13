@@ -19,9 +19,6 @@
  *
 */
 
-// NOTE: KPB - this is a light refatoring of inappbrowser.js to allow "private" members
-// This should be used as the basis of the OS specific inappbrowser.js files.
-
 (function () {
     // special patch to correctly work on Ripple emulator (CB-9760)
     if (window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
@@ -34,37 +31,70 @@
     var modulemapper = require('cordova/modulemapper');
     var urlutil = require('cordova/urlutil');
 
-    function InAppBrowser () {
+    function InAppBrowser (strUrl, strWindowName, strWindowFeatures, callbacks) {
         var me = this;
+        var hidden = false;
+        var backChannels = { };
         me.channels = {
             'beforeload': channel.create('beforeload'),
             'loadstart': channel.create('loadstart'),
             'loadstop': channel.create('loadstop'),
             'loaderror': channel.create('loaderror'),
+            'hidden' : channel.create('hidden'),
+            'unhidden' : channel.create('unhidden'),
+            'bridgeresponse' : channel.create('bridgeresponse'),
             'exit': channel.create('exit'),
             'customscheme': channel.create('customscheme'),
             'message': channel.create('message')
         };
 
+        me.isHidden = function(){
+            return hidden;
+        }
+
         me.close = function (eventname) {
             exec(null, null, 'InAppBrowser', 'close', []);
-        },
+            hidden = false;
+        };
+
         me.show = function (eventname) {
             exec(null, null, 'InAppBrowser', 'show', []);
-        },
+            hidden = false;
+        };
+
         me.hide = function (eventname) {
             exec(null, null, 'InAppBrowser', 'hide', []);
-        },
+            hidden = true;
+        };
+
+        me.unHide = function (strUrl, eventname) {
+            exec(null,null,"InAppBrowser", "unHide", [strUrl]);
+            hidden = false;
+        };
+
+        me.update = function (strUrl, show) {
+            exec(null,null,"InAppBrowser", "update", [strUrl, show]);
+
+            if (show) {
+                hidden = false;
+            }
+        };
+
+        me.bridge = function (objectName, bridgeFunction) {
+            exec(null, null, "InAppBrowser", "bridge", [objectName, bridgeFunction]);
+        }
+
         me.addEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].subscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].subscribe(f);
             }
-        },
+        };
+
         me.removeEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].unsubscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].unsubscribe(f);
             }
-        },
+        };
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -74,7 +104,7 @@
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        },
+        };
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -84,22 +114,29 @@
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
-        }
+        };
 
-        // NOTE: this is meant to be private, but isn't, usual JS underscore foo "protecting" it...
-        me._eventHandler  = function (event) {
-            if (event && (event.type in this.channels)) {
+        function eventHandler (event) {
+            if (event && (event.type in me.channels)) {
                 if (event.type === 'beforeload') {
-                    this.channels[event.type].fire(event, _loadAfterBeforeload);
+                    me.channels[event.type].fire(event, loadAfterBeforeload);
                 } else {
-                    this.channels[event.type].fire(event);
+                    me.channels[event.type].fire(event);
                 }
             }
-        }
-        function  _loadAfterBeforeload (strUrl) {
+        };
+
+        function  loadAfterBeforeload (strUrl) {
             strUrl = urlutil.makeAbsolute(strUrl);
             exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
         }
+
+        for (var callbackName in callbacks) {
+            me.addEventListener(callbackName, callbacks[callbackName]);
+        }
+ 
+        exec(eventHandler, eventHandler, "InAppBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
+
     }
 
     module.exports = function (strUrl, strWindowName, strWindowFeatures, callbacks) {
@@ -110,20 +147,15 @@
         }
 
         strUrl = urlutil.makeAbsolute(strUrl);
-        var iab = new InAppBrowser();
-
-        callbacks = callbacks || {};
-        for (var callbackName in callbacks) {
-            iab.addEventListener(callbackName, callbacks[callbackName]);
-        }
-
-        var cb = function (eventname) {
-            iab._eventHandler(eventname);
-        };
 
         strWindowFeatures = strWindowFeatures || '';
 
-        exec(cb, cb, 'InAppBrowser', 'open', [strUrl, strWindowName, strWindowFeatures]);
-        return iab;
+        if(strWindowName === '_system') {
+            // This is now separate as more-or-less fire and forget system browser was re-utilising
+            // Code for blank/self. This caused problems with browser crashes etc.
+            exec(null, null, "SystemBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
+        } else {
+            return new InAppBrowser(strUrl, strWindowName, strWindowFeatures, callbacks || {});
+        }
     };
 })();

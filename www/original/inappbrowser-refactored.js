@@ -34,7 +34,7 @@
     var modulemapper = require('cordova/modulemapper');
     var urlutil = require('cordova/urlutil');
 
-    function InAppBrowser () {
+    function InAppBrowser (url, windowName, windowFeatures, callbacks) {
         var me = this;
         me.channels = {
             'beforeload': channel.create('beforeload'),
@@ -48,23 +48,27 @@
 
         me.close = function (eventname) {
             exec(null, null, 'InAppBrowser', 'close', []);
-        },
+        };
+
         me.show = function (eventname) {
             exec(null, null, 'InAppBrowser', 'show', []);
-        },
+        };
+
         me.hide = function (eventname) {
             exec(null, null, 'InAppBrowser', 'hide', []);
-        },
+        };
+
         me.addEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].subscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].subscribe(f);
             }
-        },
+        };
+
         me.removeEventListener = function (eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].unsubscribe(f);
+            if (eventname in me.channels) {
+                me.channels[eventname].unsubscribe(f);
             }
-        },
+        };
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -74,7 +78,7 @@
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        },
+        };
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
@@ -84,18 +88,19 @@
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
-        }
+        };
 
         // NOTE: this is meant to be private, but isn't, usual JS underscore foo "protecting" it...
         me._eventHandler  = function (event) {
-            if (event && (event.type in this.channels)) {
+            if (event && (event.type in me.channels)) {
                 if (event.type === 'beforeload') {
-                    this.channels[event.type].fire(event, _loadAfterBeforeload);
+                    me.channels[event.type].fire(event, _loadAfterBeforeload);
                 } else {
-                    this.channels[event.type].fire(event);
+                    me.channels[event.type].fire(event);
                 }
             }
-        }
+        };
+
         function  _loadAfterBeforeload (strUrl) {
             strUrl = urlutil.makeAbsolute(strUrl);
             exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
