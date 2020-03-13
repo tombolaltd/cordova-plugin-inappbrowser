@@ -54,16 +54,28 @@ interface InAppBrowser extends Window {
     removeEventListener(type: channel, callback: InAppBrowserEventListenerOrEventListenerObject): void;
     /** Closes the InAppBrowser window. */
     close(): void;
+
     /** Hides the InAppBrowser window. Calling this has no effect if the InAppBrowser was already hidden. */
     hide(): void;
 
-    /** Unhides the InAppBrowser window. Calling this has no effect if the InAppBrowser was already visible. */
-    unhide(): void;
+    /**
+     * Unhides the InAppBrowser window. Calling this has no effect if the InAppBrowser was already visible. 
+     * @param url       The url to reopen with
+     */
+    unhide(url: string): void;
     /**
      * Displays an InAppBrowser window that was opened hidden. Calling this has no effect
      * if the InAppBrowser was already visible.
      */
     show(): void;
+
+    /**
+    * Update the browser url to show a different page
+    * @param url        The url to navigate
+    * @param show       Wether to unhide the browser immediately
+    */
+    update(url: string, show: boolean): void;
+
     /**
      * Injects JavaScript code into the InAppBrowser window.
      * @param script    Details of the script to run, specifying either a file or code key.
@@ -80,6 +92,12 @@ interface InAppBrowser extends Window {
      * @param callback  The function that executes after the CSS is injected.
      */
     insertCSS(css: { code: string } | { file: string }, callback: () => void): void;
+
+    /**
+     * Returns whether the window is hidden
+     * @returns boolean, the hidden state
+     */
+    isHidden(): boolean;
 }
 
 type InAppBrowserEventListenerOrEventListenerObject = InAppBrowserEventListener | InAppBrowserEventListenerObject;
