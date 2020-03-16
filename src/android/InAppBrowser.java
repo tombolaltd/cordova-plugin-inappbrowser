@@ -94,9 +94,6 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String SYSTEM = "_system";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
-
-    private static final String MESSAGE_EVENT = "message";
-
     private static final String HIDDEN = "hidden";
     private static final String CLEAR_ALL_CACHE = "clearcache";
     private static final String CLEAR_SESSION_CACHE = "clearsessioncache";
