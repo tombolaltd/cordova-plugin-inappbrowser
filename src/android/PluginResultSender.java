@@ -15,48 +15,37 @@ public class PluginResultSender {
         callbackContext = context;
     }
 
-    public void closing(JSONObject obj) {
-        update(obj, false, PluginResult.Status.OK);
+    public void closing(JSONObject result) {
+        update(result, false, PluginResult.Status.OK);
     }
 
-    public void error(JSONObject obj) {
-        update(obj, true, PluginResult.Status.ERROR);
+    public void error(JSONObject result) {
+        update(result, true, PluginResult.Status.ERROR);
     }
 
     public void ok() {
-        ok("");
+        ok(new JSONObject());
     }
 
-    public void ok(String response) {
-        update(response, true, PluginResult.Status.OK);
-    }
-
-    public void update(String response, boolean keepCallback, PluginResult.Status status) {
-        if (callbackContext != null) {
-            PluginResult pluginResult = new PluginResult(status, response);
-            pluginResult.setKeepCallback(keepCallback);
-            this.callbackContext.sendPluginResult(pluginResult);
-        }
-    }
-
+    // KPB - In the previous version this used to take a string.
     /**
      * Create a new plugin success result and send it back to JavaScript
      *
-     * @param obj a JSONObject contain event payload information
+     * @param response a JSONObject contain event payload information
      */
-    public void ok(JSONObject obj) {
-        update(obj, true, PluginResult.Status.OK);
+    public void ok(JSONObject response) {
+        update(response, true, PluginResult.Status.OK);
     }
 
     /**
      * Create a new plugin result and send it back to JavaScript
      *
-     * @param obj    a JSONObject contain event payload information
+     * @param response a JSONObject contain event payload information
      * @param status the status code to return to the JavaScript environment
      */
-    public void update(JSONObject obj, boolean keepCallback, PluginResult.Status status) {
+    public void update(JSONObject response, boolean keepCallback, PluginResult.Status status) {
         if (callbackContext != null) {
-            PluginResult result = new PluginResult(status, obj);
+            PluginResult result = new PluginResult(status, response);
             result.setKeepCallback(keepCallback);
             callbackContext.sendPluginResult(result);
             if (!keepCallback) {

@@ -124,6 +124,9 @@ public class InAppBrowser extends CordovaPlugin {
     private WebView inAppWebView;
     private EditText edittext;
     private CallbackContext callbackContext;
+    private PluginResultSender pluginResultSender;
+    // private BrowserEventSender browserEventSender;
+
     private boolean showLocationBar = true;
     private boolean showZoomControls = true;
     private boolean openWindowHidden = false;
@@ -161,6 +164,8 @@ public class InAppBrowser extends CordovaPlugin {
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext) throws JSONException {
         if (action.equals("open")) {
             this.callbackContext = callbackContext;
+            pluginResultSender = new PluginResultSender(callbackContext);
+            // browserEventSender = new BrowserEventSender(pluginResultSender);
             final String url = args.getString(0);
             String t = args.optString(1);
             if (t == null || t.equals("") || t.equals(NULL)) {
@@ -318,9 +323,7 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 }
             });
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
-            pluginResult.setKeepCallback(true);
-            this.callbackContext.sendPluginResult(pluginResult);
+            pluginResultSender.ok();
         }
         else if (action.equals("hide")) {
             this.cordova.getActivity().runOnUiThread(new Runnable() {
@@ -331,9 +334,7 @@ public class InAppBrowser extends CordovaPlugin {
                     }
                 }
             });
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
-            pluginResult.setKeepCallback(true);
-            this.callbackContext.sendPluginResult(pluginResult);
+            pluginResultSender.ok();
         }
         else {
             return false;
@@ -551,7 +552,7 @@ public class InAppBrowser extends CordovaPlugin {
                 try {
                     JSONObject obj = new JSONObject();
                     obj.put("type", EXIT_EVENT);
-                    sendUpdate(obj, false);
+                    pluginResultSender.closing(obj);
                 } catch (JSONException ex) {
                     LOG.d(LOG_TAG, "Should never happen");
                 }
@@ -990,7 +991,7 @@ public class InAppBrowser extends CordovaPlugin {
                             JSONObject obj = new JSONObject();
                             obj.put("type", MESSAGE_EVENT);
                             obj.put("data", new JSONObject(data));
-                            sendUpdate(obj, true);
+                            pluginResultSender.ok(obj);
                         } catch (JSONException ex) {
                             LOG.e(LOG_TAG, "data object passed to postMessage has caused a JSON error.");
                         }
@@ -1083,32 +1084,6 @@ public class InAppBrowser extends CordovaPlugin {
         };
         this.cordova.getActivity().runOnUiThread(runnable);
         return "";
-    }
-
-    /**
-     * Create a new plugin success result and send it back to JavaScript
-     *
-     * @param obj a JSONObject contain event payload information
-     */
-    private void sendUpdate(JSONObject obj, boolean keepCallback) {
-        sendUpdate(obj, keepCallback, PluginResult.Status.OK);
-    }
-
-    /**
-     * Create a new plugin result and send it back to JavaScript
-     *
-     * @param obj a JSONObject contain event payload information
-     * @param status the status code to return to the JavaScript environment
-     */
-    private void sendUpdate(JSONObject obj, boolean keepCallback, PluginResult.Status status) {
-        if (callbackContext != null) {
-            PluginResult result = new PluginResult(status, obj);
-            result.setKeepCallback(keepCallback);
-            callbackContext.sendPluginResult(result);
-            if (!keepCallback) {
-                callbackContext = null;
-            }
-        }
     }
 
     /**
@@ -1241,7 +1216,7 @@ public class InAppBrowser extends CordovaPlugin {
                     obj.put("url", url);
                     obj.put("code", -1);
                     obj.put("message", errorMessage);
-                    sendUpdate(obj, true, PluginResult.Status.ERROR);
+                    pluginResultSender.error(obj);
                 } catch(Exception e) {
                     LOG.e(LOG_TAG, "Error sending loaderror for " + url + ": " + e.toString());
                 }
@@ -1312,7 +1287,7 @@ public class InAppBrowser extends CordovaPlugin {
                                 JSONObject obj = new JSONObject();
                                 obj.put("type", "customscheme");
                                 obj.put("url", url);
-                                sendUpdate(obj, true);
+                                pluginResultSender.ok(obj);
                                 override = true;
                             } catch (JSONException ex) {
                                 LOG.e(LOG_TAG, "Custom Scheme URI passed in has caused a JSON error.");
@@ -1336,7 +1311,7 @@ public class InAppBrowser extends CordovaPlugin {
                 if(method != null) {
                     obj.put("method", method);
                 }
-                sendUpdate(obj, true);
+                pluginResultSender.ok(obj);
                 return true;
             } catch (JSONException ex) {
                 LOG.e(LOG_TAG, "URI passed in has caused a JSON error.");
@@ -1406,7 +1381,7 @@ public class InAppBrowser extends CordovaPlugin {
                 JSONObject obj = new JSONObject();
                 obj.put("type", LOAD_START_EVENT);
                 obj.put("url", newloc);
-                sendUpdate(obj, true);
+                pluginResultSender.ok(obj);
             } catch (JSONException ex) {
                 LOG.e(LOG_TAG, "URI passed in has caused a JSON error.");
             }
@@ -1436,7 +1411,7 @@ public class InAppBrowser extends CordovaPlugin {
                 obj.put("type", LOAD_STOP_EVENT);
                 obj.put("url", url);
 
-                sendUpdate(obj, true);
+                pluginResultSender.ok(obj);
             } catch (JSONException ex) {
                 LOG.d(LOG_TAG, "Should never happen");
             }
@@ -1452,7 +1427,7 @@ public class InAppBrowser extends CordovaPlugin {
                 obj.put("code", errorCode);
                 obj.put("message", description);
 
-                sendUpdate(obj, true, PluginResult.Status.ERROR);
+                pluginResultSender.error(obj);
             } catch (JSONException ex) {
                 LOG.d(LOG_TAG, "Should never happen");
             }
