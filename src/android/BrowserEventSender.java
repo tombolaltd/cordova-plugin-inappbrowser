@@ -79,7 +79,7 @@ public class BrowserEventSender {
         }
     }
 
-    // TODO: KPB - the following are ported from our fork ready for use, but not used 
+    // TODO: KPB - the following are ported from our fork ready for use, but not used
     // in the current branch.
     public void hidden(){
         try {
