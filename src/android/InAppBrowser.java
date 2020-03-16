@@ -92,14 +92,12 @@ public class InAppBrowser extends CordovaPlugin {
     protected static final String LOG_TAG = "InAppBrowser";
     private static final String SELF = "_self";
     private static final String SYSTEM = "_system";
-    private static final String EXIT_EVENT = "exit";
     private static final String LOCATION = "location";
     private static final String ZOOM = "zoom";
-    private static final String HIDDEN = "hidden";
-    private static final String LOAD_START_EVENT = "loadstart";
-    private static final String LOAD_STOP_EVENT = "loadstop";
-    private static final String LOAD_ERROR_EVENT = "loaderror";
+
     private static final String MESSAGE_EVENT = "message";
+
+    private static final String HIDDEN = "hidden";
     private static final String CLEAR_ALL_CACHE = "clearcache";
     private static final String CLEAR_SESSION_CACHE = "clearsessioncache";
     private static final String HARDWARE_BACK_BUTTON = "hardwareback";
@@ -125,7 +123,7 @@ public class InAppBrowser extends CordovaPlugin {
     private EditText edittext;
     private CallbackContext callbackContext;
     private PluginResultSender pluginResultSender;
-    // private BrowserEventSender browserEventSender;
+    private BrowserEventSender browserEventSender;
 
     private boolean showLocationBar = true;
     private boolean showZoomControls = true;
@@ -165,7 +163,7 @@ public class InAppBrowser extends CordovaPlugin {
         if (action.equals("open")) {
             this.callbackContext = callbackContext;
             pluginResultSender = new PluginResultSender(callbackContext);
-            // browserEventSender = new BrowserEventSender(pluginResultSender);
+            browserEventSender = new BrowserEventSender(pluginResultSender);
             final String url = args.getString(0);
             String t = args.optString(1);
             if (t == null || t.equals("") || t.equals(NULL)) {
@@ -548,14 +546,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // other than your app's UI thread, it can cause unexpected results."
                 // http://developer.android.com/guide/webapps/migrating.html#Threads
                 childView.loadUrl("about:blank");
-
-                try {
-                    JSONObject obj = new JSONObject();
-                    obj.put("type", EXIT_EVENT);
-                    pluginResultSender.closing(obj);
-                } catch (JSONException ex) {
-                    LOG.d(LOG_TAG, "Should never happen");
-                }
+                browserEventSender.exit();
             }
         });
     }
@@ -987,14 +978,7 @@ public class InAppBrowser extends CordovaPlugin {
                 class JsObject {
                     @JavascriptInterface
                     public void postMessage(String data) {
-                        try {
-                            JSONObject obj = new JSONObject();
-                            obj.put("type", MESSAGE_EVENT);
-                            obj.put("data", new JSONObject(data));
-                            pluginResultSender.ok(obj);
-                        } catch (JSONException ex) {
-                            LOG.e(LOG_TAG, "data object passed to postMessage has caused a JSON error.");
-                        }
+                        browserEventSender.message(data);
                     }
                 }
 
@@ -1209,17 +1193,7 @@ public class InAppBrowser extends CordovaPlugin {
             }
 
             if(errorMessage != null) {
-                try {
-                    LOG.e(LOG_TAG, errorMessage);
-                    JSONObject obj = new JSONObject();
-                    obj.put("type", LOAD_ERROR_EVENT);
-                    obj.put("url", url);
-                    obj.put("code", -1);
-                    obj.put("message", errorMessage);
-                    pluginResultSender.error(obj);
-                } catch(Exception e) {
-                    LOG.e(LOG_TAG, "Error sending loaderror for " + url + ": " + e.toString());
-                }
+                browserEventSender.error(url, -1, errorMessage);
             }
 
             if (url.startsWith(WebView.SCHEME_TEL)) {
@@ -1377,14 +1351,7 @@ public class InAppBrowser extends CordovaPlugin {
                 edittext.setText(newloc);
             }
 
-            try {
-                JSONObject obj = new JSONObject();
-                obj.put("type", LOAD_START_EVENT);
-                obj.put("url", newloc);
-                pluginResultSender.ok(obj);
-            } catch (JSONException ex) {
-                LOG.e(LOG_TAG, "URI passed in has caused a JSON error.");
-            }
+            browserEventSender.loadStart(newloc);
         }
 
         public void onPageFinished(WebView view, String url) {
@@ -1406,31 +1373,12 @@ public class InAppBrowser extends CordovaPlugin {
             view.clearFocus();
             view.requestFocus();
 
-            try {
-                JSONObject obj = new JSONObject();
-                obj.put("type", LOAD_STOP_EVENT);
-                obj.put("url", url);
-
-                pluginResultSender.ok(obj);
-            } catch (JSONException ex) {
-                LOG.d(LOG_TAG, "Should never happen");
-            }
+            browserEventSender.loadStop(url);
         }
 
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
             super.onReceivedError(view, errorCode, description, failingUrl);
-
-            try {
-                JSONObject obj = new JSONObject();
-                obj.put("type", LOAD_ERROR_EVENT);
-                obj.put("url", failingUrl);
-                obj.put("code", errorCode);
-                obj.put("message", description);
-
-                pluginResultSender.error(obj);
-            } catch (JSONException ex) {
-                LOG.d(LOG_TAG, "Should never happen");
-            }
+            browserEventSender.error(failingUrl, errorCode, description);
         }
 
         /**
