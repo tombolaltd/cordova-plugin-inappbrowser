@@ -97,19 +97,22 @@
                 <param name="onload" value="true" />
             </feature>
         </config-file>
-
         <header-file src="src/ios/CDVInAppBrowser.h" />
-	    <source-file src="src/ios/CDVInAppBrowser.m" />
+        <source-file src="src/ios/CDVInAppBrowser.m" />
         <header-file src="src/ios/CDVInAppBrowserOptions.h" />
         <source-file src="src/ios/CDVInAppBrowserOptions.m" />
         <header-file src="src/ios/CDVInAppBrowserNavigationController.h" />
         <source-file src="src/ios/CDVInAppBrowserNavigationController.m" />
-	    <header-file src="src/ios/CDVWKInAppBrowser.h" />
-	    <source-file src="src/ios/CDVWKInAppBrowser.m" />
-	    <header-file src="src/ios/CDVWKInAppBrowserUIDelegate.h" />
-	    <source-file src="src/ios/CDVWKInAppBrowserUIDelegate.m" />
+        <header-file src="src/ios/CDVWKInAppBrowser.h" />
+        <source-file src="src/ios/CDVWKInAppBrowser.m" />
+        <header-file src="src/ios/CDVWKInAppBrowserUIDelegate.h" />
+        <source-file src="src/ios/CDVWKInAppBrowserUIDelegate.m" />
         <header-file src="src/ios/CDVSystemBrowser.h" />
-	    <source-file src="src/ios/CDVSystemBrowser.m" />
-	    <framework src="CoreGraphics.framework" />
+        <source-file src="src/ios/CDVSystemBrowser.m" />
+        <header-file src="src/ios/JavaScriptBridgeInterface.h" />
+        <source-file src="src/ios/JavaScriptBridgeInterface.m" />
+        <header-file src="src/ios/WindowState.h" />
+        <source-file src="src/ios/WindowState.m" />
+        <framework src="CoreGraphics.framework" />
     </platform>
 </plugin>

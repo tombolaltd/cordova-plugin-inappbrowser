@@ -17,20 +17,19 @@
  under the License.
  */
 
+#import <Cordova/CDVPluginResult.h>ß
 #import "CDVInAppBrowser.h"
 #import "CDVInAppBrowserOptions.h"
 #import "CDVWKInAppBrowser.h"
-#import <Cordova/CDVPluginResult.h>
-
-
-#pragma mark CDVInAppBrowser
+#import "JavaScriptBridgeInterface.h"
+#import "WindowState.h"
 
 @implementation CDVInAppBrowser
 
 - (void)pluginInitialize
 {
     // default values
-    self.usewkwebview = NO;
+    self.usewkwebview = YES;
 
 #if __has_include("CDVWKWebViewEngine.h")
     self.wkwebviewavailable = YES;
