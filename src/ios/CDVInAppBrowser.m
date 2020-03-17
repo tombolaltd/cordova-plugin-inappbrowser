@@ -168,5 +168,25 @@
     #endif
 }
 
+- (void)unHide:(CDVInvokedUrlCommand*)command {
+    // NSString* url = [command argumentAtIndex:0];
+    // NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    // NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+
+    // self.callbackId = command.callbackId;
+    // [self unHideView:url targets:target withOptions:options];
+}
+
+- (void)update:(CDVInvokedUrlCommand*)command {
+    // NSString* url = [command argumentAtIndex:0];
+    // NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    // NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+    // BOOL show = [[command argumentAtIndex:3] boolValue];
+
+    // self.callbackId = command.callbackId;
+
+    // [self updateView:url targets:target withOptions:options show:show];
+}
+
 
 @end
