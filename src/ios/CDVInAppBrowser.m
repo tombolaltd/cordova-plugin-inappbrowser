@@ -92,25 +92,12 @@
     [[CDVWKInAppBrowser getInstance] loadAfterBeforeload:command];
 }
 
-// KPB - The following probably reside, at least in part, in the CDVWKInAppBrowser tthe kInAppBrowserTarget variables are there.
 - (void)unHide:(CDVInvokedUrlCommand*)command {
-    // NSString* url = [command argumentAtIndex:0];
-    // NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
-    // NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-
-    // self.callbackId = command.callbackId;
-    // [self unHideView:url targets:target withOptions:options];
+    [[CDVWKInAppBrowser getInstance] unHide:command];
 }
 
 - (void)update:(CDVInvokedUrlCommand*)command {
-    // NSString* url = [command argumentAtIndex:0];
-    // NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
-    // NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-    // BOOL show = [[command argumentAtIndex:3] boolValue];
-
-    // self.callbackId = command.callbackId;
-
-    // [self updateView:url targets:target withOptions:options show:show];
+    [[CDVWKInAppBrowser getInstance] update:command];
 }
 
 

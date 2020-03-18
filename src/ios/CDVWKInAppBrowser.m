@@ -411,6 +411,29 @@ static CDVWKInAppBrowser* instance = nil;
     [self.inAppBrowserViewController navigateTo:url];
 }
 
+- (void)unHide:(CDVInvokedUrlCommand*)command {
+    NSString* url = [command argumentAtIndex:0];
+    NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+
+    self.callbackId = command.callbackId;
+    // TODO: KPB - this doesn't exist in this class
+    // [self unHideView:url targets:target withOptions:options];
+}
+
+- (void)update:(CDVInvokedUrlCommand*)command {
+    [[CDVWKInAppBrowser getInstance] update:command];
+    NSString* url = [command argumentAtIndex:0];
+    NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
+    NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+    BOOL show = [[command argumentAtIndex:3] boolValue];
+
+    self.callbackId = command.callbackId;
+
+    // TODO: KPB - this doesn't exist in this class
+    // [self updateView:url targets:target withOptions:options show:show];
+}
+
 // This is a helper method for the inject{Script|Style}{Code|File} API calls, which
 // provides a consistent method for injecting JavaScript code into the document.
 //
@@ -424,7 +447,7 @@ static CDVWKInAppBrowser* instance = nil;
 {
     // Ensure a message handler bridge is created to communicate with the CDVWKInAppBrowserViewController
     [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];
-    
+
     if (jsWrapper != nil) {
         NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
         NSString* sourceArrayString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
