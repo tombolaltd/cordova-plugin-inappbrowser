@@ -100,5 +100,4 @@
     [[CDVWKInAppBrowser getInstance] update:command];
 }
 
-
 @end
