@@ -17,7 +17,7 @@
  under the License.
  */
 
-#import <Cordova/CDVPluginResult.h>ß
+#import <Cordova/CDVPluginResult.h>
 #import "CDVInAppBrowser.h"
 #import "CDVInAppBrowserOptions.h"
 #import "CDVWKInAppBrowser.h"
@@ -92,6 +92,7 @@
     [[CDVWKInAppBrowser getInstance] loadAfterBeforeload:command];
 }
 
+// KPB - The following probably reside, at least in part, in the CDVWKInAppBrowser tthe kInAppBrowserTarget variables are there.
 - (void)unHide:(CDVInvokedUrlCommand*)command {
     // NSString* url = [command argumentAtIndex:0];
     // NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
