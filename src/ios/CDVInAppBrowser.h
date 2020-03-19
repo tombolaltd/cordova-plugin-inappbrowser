@@ -25,6 +25,11 @@
 @property (nonatomic, assign) BOOL wkwebviewavailable;
 @property (nonatomic, assign) BOOL usewkwebview;
 
+// TODO: KPB - these look redundant or handled elsewhere: TBC
+// @property (nonatomic, retain) CDVInAppBrowserViewController* inAppBrowserViewController;
+// @property (nonatomic, copy) NSString* callbackId;
+// @property (nonatomic, copy) NSRegularExpression *callbackIdPattern;
+
 - (void)open:(CDVInvokedUrlCommand*)command;
 - (void)close:(CDVInvokedUrlCommand*)command;
 - (void)injectScriptCode:(CDVInvokedUrlCommand*)command;
@@ -34,4 +39,3 @@
 - (void)unHide:(CDVInvokedUrlCommand*)command;
 - (void)update:(CDVInvokedUrlCommand*)command;
 @end
-

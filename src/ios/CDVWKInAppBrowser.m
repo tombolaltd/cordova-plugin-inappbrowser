@@ -76,6 +76,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)close:(CDVInvokedUrlCommand*)command
 {
+    [WindowState close];
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"IAB.close() called but it was already closed.");
         return;
@@ -85,6 +86,7 @@ static CDVWKInAppBrowser* instance = nil;
     [self.inAppBrowserViewController close];
 }
 
+// KPB - Checked
 - (BOOL) isSystemUrl:(NSURL*)url
 {
     if ([[url host] isEqualToString:@"itunes.apple.com"]) {
@@ -96,15 +98,24 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)open:(CDVInvokedUrlCommand*)command
 {
-    CDVPluginResult* pluginResult;
-
+	if(![WindowState canOpen]){
+		return;
+	}
+	[WindowState opening];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-
     self.callbackId = command.callbackId;
+    [self openUrl:url targets:target withOptions:options];
+}
 
-    if (url != nil) {
+- (void)openUrl:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
+    //NOTE this no longer handles system directly - done in a different plugin in this package
+    CDVPluginResult* pluginResult;
+    if (url == nil) {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
+        return;
+    } else {
 #ifdef __CORDOVA_4_0_0
         NSURL* baseUrl = [self.webViewEngine URL];
 #else
@@ -113,26 +124,23 @@ static CDVWKInAppBrowser* instance = nil;
         NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
 
         if ([self isSystemUrl:absoluteUrl]) {
-            target = kInAppBrowserTargetSystem;
-        }
-
-        if ([target isEqualToString:kInAppBrowserTargetSelf]) {
+            [self openInSystem:absoluteUrl]; // Newer
+            // target = kInAppBrowserTargetSystem; // our fork
+        }   else if ([target isEqualToString:kInAppBrowserTargetSelf]) {
             [self openInCordovaWebView:absoluteUrl withOptions:options];
-        } else if ([target isEqualToString:kInAppBrowserTargetSystem]) {
-            [self openInSystem:absoluteUrl];
-        } else { // _blank or anything else
+        } else {
+            // _blank or anything else
             [self openInInAppBrowser:absoluteUrl withOptions:options];
         }
 
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    } else {
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
     }
-
     [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:[self callbackId]];
 }
 
+
+// TODO: KPB - This is replicated in the original code, but is substantially different, need to check this.
 - (void)openInInAppBrowser:(NSURL*)url withOptions:(NSString*)options
 {
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
@@ -281,6 +289,21 @@ static CDVWKInAppBrowser* instance = nil;
     }
 }
 
+// FROM FORK - see next comment block.
+// - (void)show:(CDVInvokedUrlCommand*)command
+// {
+//     if (self.inAppBrowserViewController == nil) {
+//         NSLog(@"Tried to show IAB after it was closed.");
+//         return;
+//     }
+//     if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
+//         NSLog(@"Tried to show IAB while already shown");
+//         return;
+//     }
+
+//     [self showWindow];
+// }
+
 - (void)show:(CDVInvokedUrlCommand*)command{
     [self show:command withNoAnimate:NO];
 }
@@ -338,6 +361,34 @@ static CDVWKInAppBrowser* instance = nil;
     });
 }
 
+// From FORK - this is the second half of (void)show:(CDVInvokedUrlCommand*)command withNoAnimate:(BOOL)noAnimate
+// - (void)showWindow
+// {
+//     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
+
+//     __block CDVInAppBrowserNavigationController* nav = [[CDVInAppBrowserNavigationController alloc]
+//                                    initWithRootViewController:self.inAppBrowserViewController];
+//     nav.orientationDelegate = self.inAppBrowserViewController;
+//     nav.navigationBarHidden = YES;
+
+//     __weak CDVInAppBrowser* weakSelf = self;
+
+//     // Run later to avoid the "took a long time" log message.
+//     dispatch_async(dispatch_get_main_queue(), ^{
+//         if (weakSelf.inAppBrowserViewController != nil) {
+//             UIView* inAppView = weakSelf.inAppBrowserViewController.view;
+//             [weakSelf.viewController addChildViewController:weakSelf.inAppBrowserViewController];
+//             [weakSelf.viewController.view addSubview:weakSelf.inAppBrowserViewController.view];
+//             inAppView.transform = CGAffineTransformMakeTranslation(0, [UIApplication sharedApplication].statusBarFrame.size.height);
+//         }
+//     });
+// }
+
+// KPB - from our fork:
+// - (void)hide:(CDVInvokedUrlCommand*)command
+// {
+//     [self hideView]; // KPB this is our hideView method
+// }
 - (void)hide:(CDVInvokedUrlCommand*)command
 {
     // Set tmpWindow to hidden to make main webview responsive to touch again
@@ -381,6 +432,20 @@ static CDVWKInAppBrowser* instance = nil;
 #endif
 }
 
+// FROM FORK
+// - (void)sendBridgeResult:(NSString*) data {
+// 		[self sendOKPluginResult:@{@"type":@"bridgeresponse", @"data":data}];
+// }
+
+
+// FROM OUR FORK
+// - (void)openInSystem:(NSURL*) url {
+//     if ([[UIApplication sharedApplication] canOpenURL:url]) {
+//         [[UIApplication sharedApplication] openURL:url];
+//     } else { // handle any custom schemes to plugins
+//         [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
+//     }
+// }
 - (void)openInSystem:(NSURL*)url
 {
     [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
@@ -408,6 +473,50 @@ static CDVWKInAppBrowser* instance = nil;
     _waitForBeforeload = NO;
     [self.inAppBrowserViewController navigateTo:url];
 }
+
+// TODO: KPB - these fit in somewhere.
+// -(void)notifyUnhidden {
+//     //Called back from webViewDidFinishLoad
+//     if(unhiding) {
+//         [self showWindow];
+//         [self sendOKPluginResult:@{@"type":@"unhidden"}];
+//         unhiding = NO;
+//     }
+// }
+
+// -(void)hideView
+// {
+//     if(showing || unhiding || hiding) {
+//         return;
+//     }
+//     hiding = YES;
+//     [self sendOKPluginResult:@{@"type":@"preventexitonhide"}];
+//     [self sendOKPluginResult:@{@"type":@"hidden"}];
+//     [self.inAppBrowserViewController close]; //This must come after the hide callback - otherwise it isn't fired
+// }
+
+// - (void)unHideView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
+// 	if(!canOpen){
+// 		return;
+// 	}
+// 	canOpen = NO;
+//     unhiding = YES;
+//     [self openUrl:url targets:target withOptions:options];
+// }
+
+// - (void)updateView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options show:(BOOL)show {
+// 	if (!canOpen) {
+// 	    return;
+// 	}
+
+// 	canOpen = NO;
+
+// 	if (show) {
+// 	    unhiding = YES;
+// 	}
+
+//     [self openUrl:url targets:target withOptions:options];
+// }
 
 - (void)unHide:(CDVInvokedUrlCommand*)command {
     NSString* url = [command argumentAtIndex:0];
@@ -536,6 +645,165 @@ static CDVWKInAppBrowser* instance = nil;
     return NO;
 }
 
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// - (void)sendBridgeResult:(NSString*) data {
+// 		[self sendOKPluginResult:@{@"type":@"bridgeresponse", @"data":data}];
+// }
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// - (void)handleNativeResultWithString:(NSString*) jsonString {
+// 	NSError* __autoreleasing error = nil;
+//     NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+
+// 	if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
+//         NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
+//         [self sendBridgeResult:jsonString];
+//         return;
+//     }
+
+//     NSArray * array = (NSArray*) jsonData;
+//     NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
+//     if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
+//         [self sendBridgeResult:jsonString];
+//         return;
+//     }
+
+//     NSString *action = (NSString *)inAppBrowserAction;
+//     if(action ==nil) {
+//         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
+//         [self sendBridgeResult:jsonString];
+//         return;
+//     }
+
+//     if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
+//         [self.inAppBrowserViewController close];
+//         return;
+//     } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
+//         [self hideView];
+//         return;
+//     } else {
+//         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+//         [self sendBridgeResult:jsonString];
+//     }
+// }
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// - (void)handleNativeResult:(NSURL*) url {
+//     if(![[url host] isEqualToString:@"poll"]) {
+//         return;
+//     }
+
+//     NSString* scriptResult = [url path];
+//     if ((scriptResult == nil) || ([scriptResult length] < 2)) {
+//         return;
+//     }
+
+
+//     NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
+//     [self handleNativeResultWithString:jsonString];
+
+// }
+
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// - (void)handleInjectedScriptCallBack:(NSURL*) url {
+//     NSString* scriptCallbackId = [url host];
+//     if (![self isValidCallbackId:scriptCallbackId]) {
+//         return;
+//     }
+
+//     CDVPluginResult* pluginResult = nil;
+//     NSString* scriptResult = [url path];
+//     NSError* __autoreleasing error = nil;
+
+//     // The message should be a JSON-encoded array of the result of the script which executed.
+//     if ((scriptResult != nil) && ([scriptResult length] > 1)) {
+//         scriptResult = [scriptResult substringFromIndex:1];
+//         NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+//         if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
+//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
+//         } else {
+//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
+//         }
+//     } else {
+//         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
+//     }
+//     [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
+
+// }
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// -(void)sendOKPluginResult:(NSDictionary*)messageAsDictionary {
+//     if (self.callbackId != nil) {
+//         // Send a loadstart event for each top-level navigation (includes redirects).
+//         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+//                                                       messageAsDictionary:messageAsDictionary];
+//         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+//         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+//     }
+// }
+
+
+// - (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
+//     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+//     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+//         // Preference missing.
+//         return NO;
+//     }
+//     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+//         if ([allowedScheme isEqualToString:scheme]) {
+//             return YES;
+//         }
+//     }
+//     return NO;
+// }
+
+// TODO: KPB - this is in the old forked code, there is no equivalent here
+// - (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType {
+//     NSURL* url = request.URL;
+//     BOOL isTopLevelNavigation = [request.URL isEqual:[request mainDocumentURL]];
+
+//     // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
+//     // and the path, if present, should be a JSON-encoded value to pass to the callback.
+//     if ([[url scheme] isEqualToString:@"gap-iab"]) {
+//         [self handleInjectedScriptCallBack: url];
+//         return NO;
+//     }
+
+//     //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+//     if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
+//         // Send a customscheme event.
+//         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+//                                                       messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
+//         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+//         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+//         return NO;
+//     }
+
+//     // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
+//     // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
+//     // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
+//     if([[url scheme] isEqualToString:@"gap-iab-native"]) {
+//         [self handleNativeResult:url];
+//         return NO;
+//     }
+
+//     if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
+//             //if is an app store link, let the system handle it, otherwise it fails to load it
+//         [theWebView stopLoading];
+//         [self openInSystem:url];
+//         return NO;
+//     }
+
+//     if (isTopLevelNavigation) {
+//         [self sendOKPluginResult:@{@"type":@"loadstart", @"url":[url absoluteString]}];
+//     }
+
+//     return YES;
+// }
+
+
 /**
  * The message handler bridge provided for the InAppBrowser is capable of executing any oustanding callback belonging
  * to the InAppBrowser plugin. Care has been taken that other callbacks cannot be triggered, and that no
@@ -660,6 +928,27 @@ static CDVWKInAppBrowser* instance = nil;
 //    self.inAppBrowserViewController.currentURL = theWebView.URL;
 }
 
+// From fork - equivalent to did finishNavigation?
+// - (void)webViewDidFinishLoad:(UIWebView*)theWebView {
+//     NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
+
+
+//     JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
+// 	[jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
+//             NSLog(@"WEB JS Error: %@", value);
+//         }];
+
+//     jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
+//     	//The callback is expecting a string as per inject script, this is wrapped in an outer array.
+//     	NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
+//     	[self handleNativeResultWithString: canonicalisedResponse];
+//     }];
+
+//     [self sendOKPluginResult:@{@"type":@"loadstop", @"url":url}];
+//     [WindowState showingDone];
+//     [self notifyUnhidden];
+// }
+
 - (void)didFinishNavigation:(WKWebView*)theWebView
 {
     if (self.callbackId != nil) {
@@ -679,6 +968,23 @@ static CDVWKInAppBrowser* instance = nil;
     }
 }
 
+// From our fork: missing here.
+// - (BOOL)isAllowedScheme:(NSString*)scheme
+// {
+//     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+//     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+//         // Preference missing.
+//         return NO;
+//     }
+//     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+//         if ([allowedScheme isEqualToString:scheme]) {
+//             return YES;
+//         }
+//     }
+//     return NO;
+// }
+
+// KPB - in our fork this is similar to - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(NSError*)error
 {
     if (self.callbackId != nil) {
@@ -698,6 +1004,7 @@ static CDVWKInAppBrowser* instance = nil;
     }
 }
 
+// KPB - checked.
 - (void)browserExit
 {
     if (self.callbackId != nil) {
@@ -707,6 +1014,7 @@ static CDVWKInAppBrowser* instance = nil;
         self.callbackId = nil;
     }
 
+    // TODO: KPB - look into the message Handler - it looks like it might actually do the same job as our JS injection....
     [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:IAB_BRIDGE_NAME];
     self.inAppBrowserViewController.configuration = nil;
 
@@ -764,6 +1072,7 @@ BOOL isExiting = FALSE;
     //NSLog(@"dealloc");
 }
 
+// KPB - this is largely different from the original fork, but neither set of code appears to have our stuff in it.
 - (void)createViews
 {
     // We create the views in code for primarily for ease of upgrades and not requiring an external .xib to be included
@@ -1095,13 +1404,30 @@ BOOL isExiting = FALSE;
 
     __weak UIViewController* weakSelf = self;
 
+    // KPB: this dispatch used to be:
+    // dispatch_async(dispatch_get_main_queue(), ^{
+    //     if ([weakSelf parentViewController]) {
+    //         [weakSelf.view removeFromSuperview];
+    //         [weakSelf removeFromParentViewController];
+    //         weakSelf.view = nil;
+    //     }
+    //     unhiding = NO;
+    //     showing = NO;
+    //     hiding = NO;
+    //     closing = NO;
+    // });
+
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         isExiting = TRUE;
         if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
-            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
+            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:^{
+                [WindowState closed];
+            }];
         } else {
-            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
+            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:^{
+                [WindowState closed];
+            }];
         }
     });
 }
@@ -1238,6 +1564,7 @@ BOOL isExiting = FALSE;
     }
 
     [self.navigationDelegate didFinishNavigation:theWebView];
+    [WindowState canOpen]
 }
 
 - (void)webView:(WKWebView*)theWebView failedNavigation:(NSString*) delegateName withError:(nonnull NSError *)error{
@@ -1251,6 +1578,7 @@ BOOL isExiting = FALSE;
     self.addressLabel.text = NSLocalizedString(@"Load Error", nil);
 
     [self.navigationDelegate webView:theWebView didFailNavigation:error];
+    [WindowState canOpen]
 }
 
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(null_unspecified WKNavigation *)navigation withError:(nonnull NSError *)error

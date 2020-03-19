@@ -1,5 +1,7 @@
+#pragma mark ******************** WIP
 #import "JavaScriptBridgeInterface.h"
 
+// KPB -this is purely our code
 @implementation JavaScriptBridgeInterfaceObject
 	void (^callbackFunction) (NSString*);
 

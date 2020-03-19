@@ -1,3 +1,4 @@
+#pragma mark ******************** WIP
 @interface WindowState : NSObject {}
     + (void)availableToOpen;
     + (void)close;

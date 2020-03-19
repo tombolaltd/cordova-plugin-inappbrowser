@@ -1,3 +1,4 @@
+#pragma mark ******************** WIP
 #import "WindowState.h"
 
 static bool unhiding = NO;
@@ -9,10 +10,14 @@ static bool openable = YES; // was canOpen
 @implementation WindowState
 
 + (void)availableToOpen {
-    openable = YES;
+    openable = YES; // was canOpen
 }
 
 + (void)close {
+    unhiding = NO;
+    showing = NO;
+    hiding = NO;
+    closing = NO;
     closing = YES;
 }
 
@@ -21,6 +26,8 @@ static bool openable = YES; // was canOpen
     showing = NO;
     hiding = NO;
     closing = NO;
+    // openable = YES; // TODO: KPB - confirm, untested but this is likely to be the case.
+
 }
 
 + (void)hide {
