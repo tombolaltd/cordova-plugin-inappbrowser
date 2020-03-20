@@ -21,8 +21,6 @@
 #import "CDVInAppBrowser.h"
 #import "CDVInAppBrowserOptions.h"
 #import "CDVWKInAppBrowser.h"
-#import "JavaScriptBridgeInterface.h"
-#import "WindowState.h"
 
 @implementation CDVInAppBrowser
 

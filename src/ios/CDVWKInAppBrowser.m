@@ -18,6 +18,8 @@
  */
 
 #import "CDVWKInAppBrowser.h"
+#import "WindowState.h"
+#import "JavaScriptBridgeInterface.h"
 
 #if __has_include("CDVWKProcessPoolFactory.h")
 #import "CDVWKProcessPoolFactory.h"
@@ -49,6 +51,8 @@
 
 @implementation CDVWKInAppBrowser
 
+const WindowState* windowState = nil;
+
 static CDVWKInAppBrowser* instance = nil;
 
 + (id) getInstance{
@@ -58,10 +62,12 @@ static CDVWKInAppBrowser* instance = nil;
 - (void)pluginInitialize
 {
     instance = self;
+    windowState = [WindowState sharedInstance];
     _previousStatusBarStyle = -1;
     _callbackIdPattern = nil;
     _beforeload = @"";
     _waitForBeforeload = NO;
+    [windowState initialised];
 }
 
 - (id)settingForKey:(NSString*)key
@@ -76,12 +82,13 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)close:(CDVInvokedUrlCommand*)command
 {
-    [WindowState close];
+    
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"IAB.close() called but it was already closed.");
         return;
     }
 
+    [windowState close];
     // Things are cleaned up in browserExit.
     [self.inAppBrowserViewController close];
 }
@@ -98,10 +105,10 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)open:(CDVInvokedUrlCommand*)command
 {
-	if(![WindowState canOpen]){
+	if(![windowState canOpen]){
 		return;
 	}
-	[WindowState opening];
+	[windowState opening];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
@@ -1422,11 +1429,11 @@ BOOL isExiting = FALSE;
         isExiting = TRUE;
         if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
             [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:^{
-                [WindowState closed];
+                [windowState closed];
             }];
         } else {
             [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:^{
-                [WindowState closed];
+                [windowState closed];
             }];
         }
     });
@@ -1564,7 +1571,7 @@ BOOL isExiting = FALSE;
     }
 
     [self.navigationDelegate didFinishNavigation:theWebView];
-    [WindowState canOpen]
+    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView failedNavigation:(NSString*) delegateName withError:(nonnull NSError *)error{
@@ -1578,7 +1585,7 @@ BOOL isExiting = FALSE;
     self.addressLabel.text = NSLocalizedString(@"Load Error", nil);
 
     [self.navigationDelegate webView:theWebView didFailNavigation:error];
-    [WindowState canOpen]
+    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(null_unspecified WKNavigation *)navigation withError:(nonnull NSError *)error
