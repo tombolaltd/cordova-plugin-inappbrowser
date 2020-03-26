@@ -1,6 +1,7 @@
 #pragma mark ******************** WIP
 @interface WindowState : NSObject
     + (instancetype)sharedInstance;
+
     - (id)init;
     - (void)initialised;
 
@@ -8,9 +9,10 @@
     - (void)close;
     - (void)closed;
     - (void)hide;
+    - (void)hidden;
     - (void)opening;
     - (void)unhide;
-    - (void)unhidden;
+    - (void)displayed;
     - (void)showingDone;
 
     - (bool)canHide;

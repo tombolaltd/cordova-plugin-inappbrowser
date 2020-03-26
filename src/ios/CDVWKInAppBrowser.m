@@ -300,26 +300,22 @@ static CDVWKInAppBrowser* instance = nil;
     [self.inAppBrowserViewController navigateTo:url];
     if (!browserOptions.hidden) {
         [self show:nil withNoAnimate:browserOptions.hidden];
+    } else {
+        [windowState hidden];
     }
 }
 
-// FROM FORK - see next comment block.
-// - (void)show:(CDVInvokedUrlCommand*)command
-// {
-//     if (self.inAppBrowserViewController == nil) {
-//         NSLog(@"Tried to show IAB after it was closed.");
-//         return;
-//     }
-//     if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
-//         NSLog(@"Tried to show IAB while already shown");
-//         return;
-//     }
-
-//     [self showWindow];
-// }
-
 - (void)show:(CDVInvokedUrlCommand*)command{
     [self show:command withNoAnimate:NO];
+    // TODO: KPB - this is from our original code - need to work out whether it is still needed.
+    //     if (self.inAppBrowserViewController == nil) {
+    //         NSLog(@"Tried to show IAB after it was closed.");
+    //         return;
+    //     }
+    //     if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
+    //         NSLog(@"Tried to show IAB while already shown");
+    //         return;
+    //     }
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command withNoAnimate:(BOOL)noAnimate
@@ -338,7 +334,8 @@ static CDVWKInAppBrowser* instance = nil;
         return;
     }
 
-    if(!initHidden){
+    if (!initHidden)
+    {
         _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
     }
 
@@ -374,29 +371,6 @@ static CDVWKInAppBrowser* instance = nil;
         }
     });
 }
-
-// From FORK - this is the second half of (void)show:(CDVInvokedUrlCommand*)command withNoAnimate:(BOOL)noAnimate
-// - (void)showWindow
-// {
-//     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
-
-//     __block CDVInAppBrowserNavigationController* nav = [[CDVInAppBrowserNavigationController alloc]
-//                                    initWithRootViewController:self.inAppBrowserViewController];
-//     nav.orientationDelegate = self.inAppBrowserViewController;
-//     nav.navigationBarHidden = YES;
-
-//     __weak CDVInAppBrowser* weakSelf = self;
-
-//     // Run later to avoid the "took a long time" log message.
-//     dispatch_async(dispatch_get_main_queue(), ^{
-//         if (weakSelf.inAppBrowserViewController != nil) {
-//             UIView* inAppView = weakSelf.inAppBrowserViewController.view;
-//             [weakSelf.viewController addChildViewController:weakSelf.inAppBrowserViewController];
-//             [weakSelf.viewController.view addSubview:weakSelf.inAppBrowserViewController.view];
-//             inAppView.transform = CGAffineTransformMakeTranslation(0, [UIApplication sharedApplication].statusBarFrame.size.height);
-//         }
-//     });
-// }
 
 // KPB - from our fork:
 // - (void)hide:(CDVInvokedUrlCommand*)command
@@ -489,15 +463,6 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 // TODO: KPB - these fit in somewhere.
-// -(void)notifyUnhidden {
-//     //Called back from webViewDidFinishLoad
-//     if(unhiding) {
-//         [self showWindow];
-//         [self sendOKPluginResult:@{@"type":@"unhidden"}];
-//         unhiding = NO;
-//     }
-// }
-
 // -(void)hideView
 // {
 //     if(showing || unhiding || hiding) {
@@ -919,27 +884,6 @@ static CDVWKInAppBrowser* instance = nil;
 //    self.inAppBrowserViewController.currentURL = theWebView.URL;
 }
 
-// From fork - equivalent to did finishNavigation?
-// - (void)webViewDidFinishLoad:(UIWebView*)theWebView {
-//     NSString* url = [self.inAppBrowserViewController.currentURL absoluteString];
-
-
-//     JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
-// 	[jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
-//             NSLog(@"WEB JS Error: %@", value);
-//         }];
-
-//     jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
-//     	//The callback is expecting a string as per inject script, this is wrapped in an outer array.
-//     	NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
-//     	[self handleNativeResultWithString: canonicalisedResponse];
-//     }];
-
-//     [self sendOKPluginResult:@{@"type":@"loadstop", @"url":url}];
-//     [WindowState showingDone];
-//     [self notifyUnhidden];
-// }
-
 - (void)didFinishNavigation:(WKWebView*)theWebView
 {
     if ([self.cordovaPluginResultProxy hasCallbackId]) {
@@ -951,7 +895,19 @@ static CDVWKInAppBrowser* instance = nil;
                 url = @"";
             }
         }
+// TODO: KPB - this is from our fork, but not implemented.
+//         JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
+//         [jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
+//                 NSLog(@"WEB JS Error: %@", value);
+//             }];
+//
+//         jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
+//             //The callback is expecting a string as per inject script, this is wrapped in an outer array.
+//             NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
+//             [self handleNativeResultWithString: canonicalisedResponse];
+//         }];
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
+        //     [WindowState showingDone]; // TODO: DO we need a done?
     }
 }
 
@@ -1355,18 +1311,31 @@ BOOL isExiting = FALSE;
     }
 }
 
+// TODO KPB - THIS IS THE LOAD METHOD??????
 - (void)viewDidLoad
 {
     viewRenderedAtLeastOnce = FALSE;
     [super viewDidLoad];
 }
 
+// OH MY GIDDY AUNT, use a simple word like "hide?" LOLNO not apple.
 - (void)viewDidDisappear:(BOOL)animated
 {
     [super viewDidDisappear:animated];
     if (isExiting && (self.navigationDelegate != nil) && [self.navigationDelegate respondsToSelector:@selector(browserExit)]) {
         [self.navigationDelegate browserExit];
         isExiting = FALSE;
+    }
+}
+
+-(void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [windowState displayed];
+    if ([windowState isUnhiding])
+    {
+        // TODO: KPB - this needs to be raised
+        // [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden"}];
     }
 }
 

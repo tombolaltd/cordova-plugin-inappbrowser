@@ -15,6 +15,45 @@ typedef NS_ENUM(NSInteger, WindowStates) {
     Closed        // 8
 };
 
++ (NSString*)windowStateToString:(enum WindowStates) windowState
+{
+    NSString *result = nil;
+
+    switch(windowState) {
+        case Initialising:
+            result = @"Initialising";
+            break;
+        case Ready:
+            result = @"Ready";
+            break;
+        case Opening:
+            result = @"Opening";
+            break;
+        case Displayed:
+            result = @"Displayed";
+            break;
+        case Hiding:
+            result = @"Hiding";
+            break;
+        case Hidden:
+            result = @"Hidden";
+            break;
+        case Unhiding:
+            result = @"Unhiding";
+            break;
+        case Closing:
+            result = @"Closing";
+            break;
+        case Closed:
+            result = @"Closed";
+            break;
+        default:
+            [NSException raise:NSGenericException format:@"Unexpected WindowStates."];
+    }
+
+    return result;
+}
+
 WindowStates currentState;
 
 // This makes the type a singleton.
@@ -31,18 +70,23 @@ WindowStates currentState;
 - (id)init
 {
     self = [super init];
-    if( self = [super init])
+    // if( self = [super init])
+    // {
+    if (currentState != Initialising)
     {
         [self setState:Initialising];
     }
+    // }
     return self;
 }
+
+
 
 - (void)setState:(WindowStates)newState
 {
     WindowStates oldState = currentState;
     currentState = newState;
-    NSLog(@"current window state changed from %lu to %lu", (unsigned long)oldState, (unsigned long)newState);
+    NSLog(@"current window state changed from %@ to %@", [[self class] windowStateToString:oldState], [[self class] windowStateToString:newState]);
 }
 
 // static bool unhiding = NO;
@@ -63,7 +107,6 @@ WindowStates currentState;
 
 - (void)close
 {
-    NSLog(@"window state close");
     [self setState:Closing];
     // unhiding = NO;
     // showing = NO;
@@ -74,7 +117,6 @@ WindowStates currentState;
 
 - (void)closed
 {
-    NSLog(@"window state Closed");
     [self setState:Closed];
     // unhiding = NO;
     // showing = NO;
@@ -90,6 +132,11 @@ WindowStates currentState;
     // hiding = YES;
 }
 
+- (void)hidden
+{
+    [self setState:Hidden];
+}
+
 - (void)unhide
 {
     [self setState:Unhiding];
@@ -97,7 +144,7 @@ WindowStates currentState;
     // unhiding = YES;
 }
 
-- (void)unhidden
+- (void)displayed
 {
     [self setState:Displayed];
     // unhiding = NO;
