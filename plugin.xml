@@ -109,6 +109,8 @@
         <source-file src="src/ios/CDVWKInAppBrowserUIDelegate.m" />
         <header-file src="src/ios/CDVSystemBrowser.h" />
         <source-file src="src/ios/CDVSystemBrowser.m" />
+        <header-file src="src/ios/CordovaPluginResultProxy.h" />
+        <source-file src="src/ios/CordovaPluginResultProxy.m" />
         <header-file src="src/ios/JavaScriptBridgeInterface.h" />
         <source-file src="src/ios/JavaScriptBridgeInterface.m" />
         <header-file src="src/ios/WindowState.h" />

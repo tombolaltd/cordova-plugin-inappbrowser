@@ -25,7 +25,6 @@
 #import "CDVWKProcessPoolFactory.h"
 #endif
 
-#import <Cordova/CDVPluginResult.h>
 #import <Cordova/CDVUserAgentUtil.h>
 
 #define    kInAppBrowserTargetSelf @"_self"
@@ -59,6 +58,12 @@ static CDVWKInAppBrowser* instance = nil;
     return instance;
 }
 
+- (void)setCommandDelegate:(id <CDVCommandDelegate>)theCommandDelegate
+{
+    [super setCommandDelegate:theCommandDelegate];
+    self.cordovaPluginResultProxy = [[CordovaPluginResultProxy alloc] initWithCommanDelegate:theCommandDelegate];
+}
+
 - (void)pluginInitialize
 {
     instance = self;
@@ -82,7 +87,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)close:(CDVInvokedUrlCommand*)command
 {
-    
+
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"IAB.close() called but it was already closed.");
         return;
@@ -112,17 +117,17 @@ static CDVWKInAppBrowser* instance = nil;
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-    self.callbackId = command.callbackId;
+    self.cordovaPluginResultProxy.callbackId = command.callbackId;
     [self openUrl:url targets:target withOptions:options];
 }
 
 - (void)openUrl:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
     //NOTE this no longer handles system directly - done in a different plugin in this package
-    CDVPluginResult* pluginResult;
+
     if (url == nil) {
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"incorrect number of arguments"];
+        [self.cordovaPluginResultProxy sendErrorWithMessageAsString:@"incorrect number of arguments"];
         return;
-    } else {
+    }
 #ifdef __CORDOVA_4_0_0
         NSURL* baseUrl = [self.webViewEngine URL];
 #else
@@ -130,24 +135,26 @@ static CDVWKInAppBrowser* instance = nil;
 #endif
         NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
 
-        if ([self isSystemUrl:absoluteUrl]) {
+        if ([self isSystemUrl:absoluteUrl])
+        {
             [self openInSystem:absoluteUrl]; // Newer
-            // target = kInAppBrowserTargetSystem; // our fork
-        }   else if ([target isEqualToString:kInAppBrowserTargetSelf]) {
+        }
+        else if ([target isEqualToString:kInAppBrowserTargetSelf])
+        {
             [self openInCordovaWebView:absoluteUrl withOptions:options];
-        } else {
+        }
+        else
+        {
             // _blank or anything else
             [self openInInAppBrowser:absoluteUrl withOptions:options];
         }
 
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    }
-    [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:[self callbackId]];
+    [self.cordovaPluginResultProxy sendOK];
 }
 
-
+// *********************************************************************************************************
 // TODO: KPB - This is replicated in the original code, but is substantially different, need to check this.
+// *********************************************************************************************************
 - (void)openInInAppBrowser:(NSURL*)url withOptions:(NSString*)options
 {
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
@@ -530,7 +537,7 @@ static CDVWKInAppBrowser* instance = nil;
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
 
-    self.callbackId = command.callbackId;
+    self.cordovaPluginResultProxy.callbackId = command.callbackId;
     // TODO: KPB - this doesn't exist in this class
     // [self unHideView:url targets:target withOptions:options];
 }
@@ -542,8 +549,7 @@ static CDVWKInAppBrowser* instance = nil;
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
     BOOL show = [[command argumentAtIndex:3] boolValue];
 
-    self.callbackId = command.callbackId;
-
+    self.cordovaPluginResultProxy.callbackId = command.callbackId;
     // TODO: KPB - this doesn't exist in this class
     // [self updateView:url targets:target withOptions:options show:show];
 }
@@ -639,7 +645,7 @@ static CDVWKInAppBrowser* instance = nil;
 {
     NSError *err = nil;
     // Initialize on first use
-    if (self.callbackIdPattern == nil) {
+    if (!self.cordovaPluginResultProxy.hasCallbackId) {
         self.callbackIdPattern = [NSRegularExpression regularExpressionWithPattern:@"^InAppBrowser[0-9]{1,10}$" options:0 error:&err];
         if (err != nil) {
             // Couldn't initialize Regex; No is safer than Yes.
@@ -711,46 +717,6 @@ static CDVWKInAppBrowser* instance = nil;
 //     [self handleNativeResultWithString:jsonString];
 
 // }
-
-
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// - (void)handleInjectedScriptCallBack:(NSURL*) url {
-//     NSString* scriptCallbackId = [url host];
-//     if (![self isValidCallbackId:scriptCallbackId]) {
-//         return;
-//     }
-
-//     CDVPluginResult* pluginResult = nil;
-//     NSString* scriptResult = [url path];
-//     NSError* __autoreleasing error = nil;
-
-//     // The message should be a JSON-encoded array of the result of the script which executed.
-//     if ((scriptResult != nil) && ([scriptResult length] > 1)) {
-//         scriptResult = [scriptResult substringFromIndex:1];
-//         NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-//         if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
-//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
-//         } else {
-//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
-//         }
-//     } else {
-//         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
-//     }
-//     [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
-
-// }
-
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// -(void)sendOKPluginResult:(NSDictionary*)messageAsDictionary {
-//     if (self.callbackId != nil) {
-//         // Send a loadstart event for each top-level navigation (includes redirects).
-//         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-//                                                       messageAsDictionary:messageAsDictionary];
-//         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-//         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-//     }
-// }
-
 
 // - (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
 //     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
@@ -841,21 +807,14 @@ static CDVWKInAppBrowser* instance = nil;
 
     // When beforeload, on first URL change, initiate JS callback. Only after the beforeload event, continue.
     if (_waitForBeforeload && useBeforeLoad) {
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"beforeload", @"url":[url absoluteString]}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"beforeload", @"url":[url absoluteString]}];
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }
 
     if(errorMessage != nil){
         NSLog(errorMessage);
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                                                      messageAsDictionary:@{@"type":@"loaderror", @"url":[url absoluteString], @"code": @"-1", @"message": errorMessage}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":[url absoluteString], @"code": @"-1", @"message": errorMessage}];
     }
 
     //if is an app store link, let the system handle it, otherwise it fails to load it
@@ -864,13 +823,9 @@ static CDVWKInAppBrowser* instance = nil;
         [self openInSystem:url];
         shouldStart = NO;
     }
-    else if ((self.callbackId != nil) && isTopLevelNavigation) {
+    else if (([self.cordovaPluginResultProxy hasCallbackId]) && isTopLevelNavigation) {
         // Send a loadstart event for each top-level navigation (includes redirects).
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
     }
 
     if (useBeforeLoad) {
@@ -892,28 +847,59 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 #pragma mark WKScriptMessageHandler delegate
+
+// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
+// NOTE it still has the old plugin result stuff - the callbackId is that of the script, not the Webview.
+// - (void)handleInjectedScriptCallBack:(NSURL*) url {
+//     NSString* scriptCallbackId = [url host];
+//     if (![self isValidCallbackId:scriptCallbackId]) {
+//         return;
+//     }
+
+//     CDVPluginResult* pluginResult = nil;
+//     NSString* scriptResult = [url path];
+//     NSError* __autoreleasing error = nil;
+
+//     // The message should be a JSON-encoded array of the result of the script which executed.
+//     if ((scriptResult != nil) && ([scriptResult length] > 1)) {
+//         scriptResult = [scriptResult substringFromIndex:1];
+//         NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+//         if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
+//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
+//         } else {
+//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
+//         }
+//     } else {
+//         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
+//     }
+//     [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
+
+// }
+
 - (void)userContentController:(nonnull WKUserContentController *)userContentController didReceiveScriptMessage:(nonnull WKScriptMessage *)message {
-
-    CDVPluginResult* pluginResult = nil;
-
     if([message.body isKindOfClass:[NSDictionary class]]){
         NSDictionary* messageContent = (NSDictionary*) message.body;
-        NSString* scriptCallbackId = messageContent[@"id"];
+
+        CordovaPluginResultProxy* scriptResultProxy = [[CordovaPluginResultProxy alloc] initWithCommanDelegate:self.commandDelegate];
+        scriptResultProxy.callbackId = messageContent[@"id"];
 
         if([messageContent objectForKey:@"d"]){
             NSString* scriptResult = messageContent[@"d"];
             NSError* __autoreleasing error = nil;
             NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
             if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
-                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
-            } else {
-                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
+                [scriptResultProxy sendOKWithMessageAsArray:(NSArray*)decodedResult];
+                return;
             }
-        } else {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
+            [scriptResultProxy sendJSONError];
+            return;
         }
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
-    }else if(self.callbackId != nil){
+
+        [scriptResultProxy sendOKWithMessageAsArray:@[]];
+        return;
+    }
+
+    if([self.cordovaPluginResultProxy hasCallbackId]){
         // Send a message event
         NSString* messageContent = (NSString*) message.body;
         NSError* __autoreleasing error = nil;
@@ -922,9 +908,7 @@ static CDVWKInAppBrowser* instance = nil;
             NSMutableDictionary* dResult = [NSMutableDictionary new];
             [dResult setValue:@"message" forKey:@"type"];
             [dResult setObject:decodedResult forKey:@"data"];
-            CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:dResult];
-            [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-            [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+            [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary: dResult];
         }
     }
 }
@@ -958,7 +942,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)didFinishNavigation:(WKWebView*)theWebView
 {
-    if (self.callbackId != nil) {
+    if ([self.cordovaPluginResultProxy hasCallbackId]) {
         NSString* url = [theWebView.URL absoluteString];
         if(url == nil){
             if(self.inAppBrowserViewController.currentURL != nil){
@@ -967,11 +951,7 @@ static CDVWKInAppBrowser* instance = nil;
                 url = @"";
             }
         }
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"loadstop", @"url":url}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
     }
 }
 
@@ -994,32 +974,26 @@ static CDVWKInAppBrowser* instance = nil;
 // KPB - in our fork this is similar to - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(NSError*)error
 {
-    if (self.callbackId != nil) {
+    if ([self.cordovaPluginResultProxy hasCallbackId]) {
         NSString* url = [theWebView.URL absoluteString];
         if(url == nil){
-            if(self.inAppBrowserViewController.currentURL != nil){
+            if(self.inAppBrowserViewController.currentURL != nil)
+            {
                 url = [self.inAppBrowserViewController.currentURL absoluteString];
-            }else{
+            }
+            else
+            {
                 url = @"";
             }
         }
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                                                      messageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
-        [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
     }
 }
 
 // KPB - checked.
 - (void)browserExit
 {
-    if (self.callbackId != nil) {
-        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                      messageAsDictionary:@{@"type":@"exit"}];
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-        self.callbackId = nil;
-    }
+    [self.cordovaPluginResultProxy sendTerminatingExitPluginResult];
 
     // TODO: KPB - look into the message Handler - it looks like it might actually do the same job as our JS injection....
     [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:IAB_BRIDGE_NAME];
@@ -1050,6 +1024,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 @end //CDVWKInAppBrowser
 
+// ***************************************************************************************************************************************************************************
 #pragma mark CDVWKInAppBrowserViewController
 
 @implementation CDVWKInAppBrowserViewController
@@ -1411,6 +1386,7 @@ BOOL isExiting = FALSE;
 
     __weak UIViewController* weakSelf = self;
 
+    // KPB: I think this is ported....
     // KPB: this dispatch used to be:
     // dispatch_async(dispatch_get_main_queue(), ^{
     //     if ([weakSelf parentViewController]) {
