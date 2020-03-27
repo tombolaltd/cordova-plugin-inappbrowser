@@ -12,7 +12,7 @@ typedef NS_ENUM(NSInteger, WindowStates) {
     Hidden,       // 5
     Unhiding,     // 6
     Closing,      // 7
-    Closed        // 8
+    Exited        // 8
 };
 
 + (NSString*)windowStateToString:(enum WindowStates) windowState
@@ -44,8 +44,8 @@ typedef NS_ENUM(NSInteger, WindowStates) {
         case Closing:
             result = @"Closing";
             break;
-        case Closed:
-            result = @"Closed";
+        case Exited:
+            result = @"Exited";
             break;
         default:
             [NSException raise:NSGenericException format:@"Unexpected WindowStates."];
@@ -100,11 +100,6 @@ WindowStates currentState;
     [self setState:Ready];
 }
 
-//- (void)availableToOpen
-//{
-//    // openable = YES; // was canOpen
-//}
-
 - (void)close
 {
     [self setState:Closing];
@@ -117,7 +112,7 @@ WindowStates currentState;
 
 - (void)closed
 {
-    [self setState:Closed];
+    [self setState:Exited];
     // unhiding = NO;
     // showing = NO;
     // hiding = NO;
@@ -140,8 +135,6 @@ WindowStates currentState;
 - (void)unhide
 {
     [self setState:Unhiding];
-    // openable = NO;
-    // unhiding = YES;
 }
 
 - (void)displayed
@@ -156,12 +149,6 @@ WindowStates currentState;
     // openable = NO;
 }
 
-- (void)showingDone
-{
-    [self setState:Ready];
-    // showing = NO;
-}
-
 - (bool)canHide
 {
     // return showing || unhiding || hiding;
@@ -170,13 +157,12 @@ WindowStates currentState;
 
 - (bool)canOpen
 {
-    // return openable;
+    // TODO: KPB - what about navigating an already open IAB?
     return currentState == Ready;
 }
 
 - (bool)isUnhiding
 {
-   // return unhiding;
    return currentState == Unhiding;
 }
 @end

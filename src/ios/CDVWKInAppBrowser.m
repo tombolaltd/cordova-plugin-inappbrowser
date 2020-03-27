@@ -372,11 +372,6 @@ static CDVWKInAppBrowser* instance = nil;
     });
 }
 
-// KPB - from our fork:
-// - (void)hide:(CDVInvokedUrlCommand*)command
-// {
-//     [self hideView]; // KPB this is our hideView method
-// }
 - (void)hide:(CDVInvokedUrlCommand*)command
 {
     // Set tmpWindow to hidden to make main webview responsive to touch again
@@ -401,6 +396,7 @@ static CDVWKInAppBrowser* instance = nil;
             [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:YES completion:nil];
         }
     });
+    [windowState hidden];
 }
 
 - (void)openInCordovaWebView:(NSURL*)url withOptions:(NSString*)options
@@ -463,16 +459,7 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 // TODO: KPB - these fit in somewhere.
-// -(void)hideView
-// {
-//     if(showing || unhiding || hiding) {
-//         return;
-//     }
-//     hiding = YES;
-//     [self sendOKPluginResult:@{@"type":@"preventexitonhide"}];
-//     [self sendOKPluginResult:@{@"type":@"hidden"}];
-//     [self.inAppBrowserViewController close]; //This must come after the hide callback - otherwise it isn't fired
-// }
+
 
 // - (void)unHideView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
 // 	if(!canOpen){
@@ -907,7 +894,6 @@ static CDVWKInAppBrowser* instance = nil;
 //             [self handleNativeResultWithString: canonicalisedResponse];
 //         }];
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
-        //     [WindowState showingDone]; // TODO: DO we need a done?
     }
 }
 
@@ -1326,17 +1312,17 @@ BOOL isExiting = FALSE;
         [self.navigationDelegate browserExit];
         isExiting = FALSE;
     }
+    [self.navigationDelegate.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"hidden"}];
 }
 
 -(void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    [windowState displayed];
     if ([windowState isUnhiding])
     {
-        // TODO: KPB - this needs to be raised
-        // [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden"}];
+        [self.navigationDelegate.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden"}];
     }
+    [windowState displayed];
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle
@@ -1355,33 +1341,17 @@ BOOL isExiting = FALSE;
 
     __weak UIViewController* weakSelf = self;
 
-    // KPB: I think this is ported....
-    // KPB: this dispatch used to be:
-    // dispatch_async(dispatch_get_main_queue(), ^{
-    //     if ([weakSelf parentViewController]) {
-    //         [weakSelf.view removeFromSuperview];
-    //         [weakSelf removeFromParentViewController];
-    //         weakSelf.view = nil;
-    //     }
-    //     unhiding = NO;
-    //     showing = NO;
-    //     hiding = NO;
-    //     closing = NO;
-    // });
-
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         isExiting = TRUE;
         if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
-            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:^{
-                [windowState closed];
-            }];
+            [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
         } else {
-            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:^{
-                [windowState closed];
-            }];
+            [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
         }
     });
+    [windowState closed];
+    [self.navigationDelegate.cordovaPluginResultProxy sendTerminatingExitPluginResult];
 }
 
 - (void)navigateTo:(NSURL*)url

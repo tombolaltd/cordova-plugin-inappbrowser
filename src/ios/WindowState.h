@@ -5,7 +5,6 @@
     - (id)init;
     - (void)initialised;
 
-    - (void)availableToOpen;
     - (void)close;
     - (void)closed;
     - (void)hide;
@@ -13,7 +12,6 @@
     - (void)opening;
     - (void)unhide;
     - (void)displayed;
-    - (void)showingDone;
 
     - (bool)canHide;
     - (bool)canOpen;
