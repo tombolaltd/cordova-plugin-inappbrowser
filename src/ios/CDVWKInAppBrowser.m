@@ -302,22 +302,20 @@ static CDVWKInAppBrowser* instance = nil;
         return;
     }
     if (!browserOptions.hidden) {
-        [self show:nil withNoAnimate:browserOptions.hidden];
+        [self showWithHiddenAs:YES withNoAnimate:browserOptions.hidden];
     } else {
         [windowState hidden];
     }
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command{
-    [self show:command withNoAnimate:NO];
+    [self showWithHiddenAs:NO withNoAnimate:NO];
 }
 
-- (void)show:(CDVInvokedUrlCommand*)command withNoAnimate:(BOOL)noAnimate
+- (void)showWithHiddenAs:(BOOL)hidden withNoAnimate:(BOOL)noAnimate
 {
-    BOOL initHidden = NO;
-    if(command == nil && noAnimate == YES){
-        initHidden = YES;
-    }
+    BOOL initHidden = hidden && noAnimate;
+
 
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to show IAB after it was closed.");
@@ -410,12 +408,10 @@ static CDVWKInAppBrowser* instance = nil;
 #endif
 }
 
-// FROM FORK
-// - (void)sendBridgeResult:(NSString*) data {
-// 		[self sendOKPluginResult:@{@"type":@"bridgeresponse", @"data":data}];
-// }
 
 
+
+// TODO: KPB - Figure out why this is different to current
 // FROM OUR FORK
 // - (void)openInSystem:(NSURL*) url {
 //     if ([[UIApplication sharedApplication] canOpenURL:url]) {
@@ -466,7 +462,6 @@ static CDVWKInAppBrowser* instance = nil;
 
     self.cordovaPluginResultProxy.callbackId = command.callbackId;
     [self openUrl:url targets:target withOptions:options];
-    [self show:command withNoAnimate:true];
 }
 
 - (void)update:(CDVInvokedUrlCommand*)command {
@@ -477,14 +472,10 @@ static CDVWKInAppBrowser* instance = nil;
     BOOL show = [[command argumentAtIndex:3] boolValue];
 
     self.cordovaPluginResultProxy.callbackId = command.callbackId;
-    [self openUrl:url targets:target withOptions:options];
-    if (show)
-    {
-        if([windowState isHidden]){
-            [windowState unhide];
-        }
-        [self show:command withNoAnimate:true];
+    if (show && [windowState isHidden]){
+        [windowState unhide];
     }
+    [self openUrl:url targets:target withOptions:options];
 }
 
 // This is a helper method for the inject{Script|Style}{Code|File} API calls, which
@@ -593,9 +584,9 @@ static CDVWKInAppBrowser* instance = nil;
 
 
 // TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// - (void)sendBridgeResult:(NSString*) data {
-// 		[self sendOKPluginResult:@{@"type":@"bridgeresponse", @"data":data}];
-// }
+- (void)sendBridgeResult:(NSString*) data {
+    [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"bridgeresponse", @"data":data}];
+}
 
 // TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
 // - (void)handleNativeResultWithString:(NSString*) jsonString {
@@ -864,6 +855,7 @@ static CDVWKInAppBrowser* instance = nil;
             }
         }
 // TODO: KPB - this is from our fork, but not implemented.
+// TODO: See https://stackoverflow.com/questions/25792131/how-to-get-jscontext-from-wkwebview
 //         JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
 //         [jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
 //                 NSLog(@"WEB JS Error: %@", value);
@@ -876,45 +868,38 @@ static CDVWKInAppBrowser* instance = nil;
 //         }];
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
         if ([windowState isUnhiding]) {
-            [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden", @"url":url}];
-            return;
+            [self showWithHiddenAs:NO withNoAnimate:true];
         }
     }
 }
 
-// From our fork: missing here.
-// - (BOOL)isAllowedScheme:(NSString*)scheme
-// {
-//     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
-//     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
-//         // Preference missing.
-//         return NO;
-//     }
-//     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
-//         if ([allowedScheme isEqualToString:scheme]) {
-//             return YES;
-//         }
-//     }
-//     return NO;
-// }
-
-// KPB - in our fork this is similar to - (void)webView:(UIWebView*)theWebView didFailLoadWithError:(NSError*)error {
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(NSError*)error
 {
-    if ([self.cordovaPluginResultProxy hasCallbackId]) {
-        NSString* url = [theWebView.URL absoluteString];
-        if(url == nil){
-            if(self.inAppBrowserViewController.currentURL != nil)
-            {
-                url = [self.inAppBrowserViewController.currentURL absoluteString];
-            }
-            else
-            {
-                url = @"";
-            }
-        }
-        [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
+    if (![self.cordovaPluginResultProxy hasCallbackId]) {
+        return;
     }
+
+    if( [error code] == NSURLErrorCancelled ) {
+        // NSURLErrorCancelled (code 999 ) is considered benign: it happens when the page is navigated away from
+        // while loading - as happens in Italy when waiting for the payment provider to acknowledge completion
+        // See http://iosdeveloperzone.com/tag/nsurlerrorcancelled/ "Suppressing Spurious Error Messages" for
+        // Explanation. Few sources cite this particular error as benign.
+        NSLog(@"IGNORED ERROR: %@", error); // Still log though!
+        return;
+    }
+
+    NSString* url = [theWebView.URL absoluteString];
+    if(url == nil){
+        if(self.inAppBrowserViewController.currentURL != nil)
+        {
+            url = [self.inAppBrowserViewController.currentURL absoluteString];
+        }
+        else
+        {
+            url = @"";
+        }
+    }
+    [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
 }
 
 // KPB - checked.
@@ -1305,7 +1290,12 @@ BOOL isExiting = FALSE;
     [super viewDidAppear:animated];
     if ([windowState isUnhiding])
     {
-        [self.navigationDelegate.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden"}];
+        NSString* url = @"";
+        if(self.navigationDelegate.inAppBrowserViewController.currentURL != nil)
+        {
+            url = [self.navigationDelegate.inAppBrowserViewController.currentURL absoluteString];
+        }
+        [self.navigationDelegate.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden", @"url":url}];
     }
     [windowState displayed];
 }
