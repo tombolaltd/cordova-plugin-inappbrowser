@@ -298,6 +298,9 @@ static CDVWKInAppBrowser* instance = nil;
     _waitForBeforeload = ![_beforeload isEqualToString:@""];
 
     [self.inAppBrowserViewController navigateTo:url];
+    if([windowState isUnhiding]){
+        return;
+    }
     if (!browserOptions.hidden) {
         [self show:nil withNoAnimate:browserOptions.hidden];
     } else {
@@ -307,15 +310,6 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)show:(CDVInvokedUrlCommand*)command{
     [self show:command withNoAnimate:NO];
-    // TODO: KPB - this is from our original code - need to work out whether it is still needed.
-    //     if (self.inAppBrowserViewController == nil) {
-    //         NSLog(@"Tried to show IAB after it was closed.");
-    //         return;
-    //     }
-    //     if (_previousStatusBarStyle != INITIAL_STATUS_BAR_STYLE) {
-    //         NSLog(@"Tried to show IAB while already shown");
-    //         return;
-    //     }
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command withNoAnimate:(BOOL)noAnimate
@@ -392,7 +386,7 @@ static CDVWKInAppBrowser* instance = nil;
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
-            _previousStatusBarStyle = -1;
+            self->_previousStatusBarStyle = -1;
             [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:YES completion:nil];
         }
     });
@@ -458,40 +452,21 @@ static CDVWKInAppBrowser* instance = nil;
     [self.inAppBrowserViewController navigateTo:url];
 }
 
-// TODO: KPB - these fit in somewhere.
-
-
-// - (void)unHideView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options {
-// 	if(!canOpen){
-// 		return;
-// 	}
-// 	canOpen = NO;
-//     unhiding = YES;
-//     [self openUrl:url targets:target withOptions:options];
-// }
-
-// - (void)updateView:(NSString*)url targets:(NSString*)target withOptions:(NSString*)options show:(BOOL)show {
-// 	if (!canOpen) {
-// 	    return;
-// 	}
-
-// 	canOpen = NO;
-
-// 	if (show) {
-// 	    unhiding = YES;
-// 	}
-
-//     [self openUrl:url targets:target withOptions:options];
-// }
-
 - (void)unHide:(CDVInvokedUrlCommand*)command {
+    [windowState unhide];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
+    
+    if (self.inAppBrowserViewController == nil) {
+        NSLog(@"Tried to hide IAB after it was closed.");
+        return;
+    }
+
 
     self.cordovaPluginResultProxy.callbackId = command.callbackId;
-    // TODO: KPB - this doesn't exist in this class
-    // [self unHideView:url targets:target withOptions:options];
+    [self openUrl:url targets:target withOptions:options];
+    [self show:command withNoAnimate:true];
 }
 
 - (void)update:(CDVInvokedUrlCommand*)command {
@@ -502,8 +477,14 @@ static CDVWKInAppBrowser* instance = nil;
     BOOL show = [[command argumentAtIndex:3] boolValue];
 
     self.cordovaPluginResultProxy.callbackId = command.callbackId;
-    // TODO: KPB - this doesn't exist in this class
-    // [self updateView:url targets:target withOptions:options show:show];
+    [self openUrl:url targets:target withOptions:options];
+    if (show)
+    {
+        if([windowState isHidden]){
+            [windowState unhide];
+        }
+        [self show:command withNoAnimate:true];
+    }
 }
 
 // This is a helper method for the inject{Script|Style}{Code|File} API calls, which
@@ -765,7 +746,7 @@ static CDVWKInAppBrowser* instance = nil;
     }
 
     if(errorMessage != nil){
-        NSLog(errorMessage);
+        NSLog(@"%@", errorMessage);
         [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":[url absoluteString], @"code": @"-1", @"message": errorMessage}];
     }
 
@@ -894,6 +875,10 @@ static CDVWKInAppBrowser* instance = nil;
 //             [self handleNativeResultWithString: canonicalisedResponse];
 //         }];
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
+        if ([windowState isUnhiding]) {
+            [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"unhidden", @"url":url}];
+            return;
+        }
     }
 }
 
@@ -1363,8 +1348,8 @@ BOOL isExiting = FALSE;
     } else {
         __weak CDVWKInAppBrowserViewController* weakSelf = self;
         [CDVUserAgentUtil acquireLock:^(NSInteger lockToken) {
-            _userAgentLockToken = lockToken;
-            [CDVUserAgentUtil setUserAgent:_userAgent lockToken:lockToken];
+            self->_userAgentLockToken = lockToken;
+            [CDVUserAgentUtil setUserAgent:self->_userAgent lockToken:lockToken];
             [weakSelf.webView loadRequest:request];
         }];
     }
@@ -1532,7 +1517,7 @@ BOOL isExiting = FALSE;
     return YES;
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
     if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(supportedInterfaceOrientations)]) {
         return [self.orientationDelegate supportedInterfaceOrientations];

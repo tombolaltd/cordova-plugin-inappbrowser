@@ -7,7 +7,6 @@
 
     - (id)initWithCommanDelegate:(id <CDVCommandDelegate>)commandDelegate;
     - (BOOL)hasCallbackId;
-    - (void)sendOKPluginResultWithMessageAsDictionary:(NSDictionary*)messageAsDictionary;
 
     - (void)sendError;
     - (void)sendErrorWithMessageAsString:(NSString*) theMessage;
@@ -35,7 +34,5 @@
     - (void)sendOKWithMessageAsArrayBuffer:(NSData*) theMessage;
     - (void)sendOKWithMessageAsMultipart:(NSString*) theMessage;
 
-
-    - (void)sendJSONError;
     - (void)sendTerminatingExitPluginResult;
 @end

@@ -161,6 +161,11 @@ WindowStates currentState;
     return currentState == Ready;
 }
 
+- (bool)isHidden
+{
+   return currentState == Hidden;
+}
+
 - (bool)isUnhiding
 {
    return currentState == Unhiding;
