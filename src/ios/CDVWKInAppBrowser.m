@@ -563,7 +563,7 @@ static CDVWKInAppBrowser* instance = nil;
 
  - (void)handleNativeResultWithString:(NSString*) jsonString {
      NSLog(@"%@", jsonString);
- 	NSError* __autoreleasing error = nil;
+     NSError* __autoreleasing error = nil;
      NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
 
  	if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
