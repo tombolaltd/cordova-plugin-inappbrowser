@@ -20,6 +20,7 @@
 #import "CDVWKInAppBrowser.h"
 #import "WindowState.h"
 #import "JavaScriptBridgeInterface.h"
+#import "ScriptCallBackIdValidator.h"
 
 #if __has_include("CDVWKProcessPoolFactory.h")
 #import "CDVWKProcessPoolFactory.h"
@@ -69,7 +70,6 @@ static CDVWKInAppBrowser* instance = nil;
     instance = self;
     windowState = [WindowState sharedInstance];
     _previousStatusBarStyle = -1;
-    _callbackIdPattern = nil;
     _beforeload = @"";
     _waitForBeforeload = NO;
     [windowState initialised];
@@ -170,25 +170,18 @@ static CDVWKInAppBrowser* instance = nil;
     }
 
     if (browserOptions.clearcache) {
-        bool isAtLeastiOS11 = false;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
         if (@available(iOS 11.0, *)) {
-            isAtLeastiOS11 = true;
-        }
-#endif
-
-        if(isAtLeastiOS11){
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-            // Deletes all cookies
-            WKHTTPCookieStore* cookieStore = dataStore.httpCookieStore;
-            [cookieStore getAllCookies:^(NSArray* cookies) {
-                NSHTTPCookie* cookie;
-                for(cookie in cookies){
-                    [cookieStore deleteCookie:cookie completionHandler:nil];
-                }
-            }];
-#endif
-        }else{
+            #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+                        // Deletes all cookies
+                        WKHTTPCookieStore* cookieStore = dataStore.httpCookieStore;
+                        [cookieStore getAllCookies:^(NSArray* cookies) {
+                            NSHTTPCookie* cookie;
+                            for(cookie in cookies){
+                                [cookieStore deleteCookie:cookie completionHandler:nil];
+                            }
+                        }];
+            #endif
+        } else {
             // https://stackoverflow.com/a/31803708/777265
             // Only deletes domain cookies (not session cookies)
             [dataStore fetchDataRecordsOfTypes:[WKWebsiteDataStore allWebsiteDataTypes]
@@ -206,14 +199,8 @@ static CDVWKInAppBrowser* instance = nil;
     }
 
     if (browserOptions.clearsessioncache) {
-        bool isAtLeastiOS11 = false;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
         if (@available(iOS 11.0, *)) {
-            isAtLeastiOS11 = true;
-        }
-#endif
-        if (isAtLeastiOS11) {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+            #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
             // Deletes session cookies
             WKHTTPCookieStore* cookieStore = dataStore.httpCookieStore;
             [cookieStore getAllCookies:^(NSArray* cookies) {
@@ -224,8 +211,8 @@ static CDVWKInAppBrowser* instance = nil;
                     }
                 }
             }];
-#endif
-        }else{
+            #endif
+        } else {
             NSLog(@"clearsessioncache not available below iOS 11.0");
         }
     }
@@ -366,6 +353,28 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)hide:(CDVInvokedUrlCommand*)command
 {
+    [self hide];
+}
+
+- (void)openInCordovaWebView:(NSURL*)url withOptions:(NSString*)options
+{
+    NSURLRequest* request = [NSURLRequest requestWithURL:url];
+
+#ifdef __CORDOVA_4_0_0
+    // the webview engine itself will filter for this according to <allow-navigation> policy
+    // in config.xml for cordova-ios-4.0
+    [self.webViewEngine loadRequest:request];
+#else
+    if ([self.commandDelegate URLIsWhitelisted:url]) {
+        [self.webView loadRequest:request];
+    } else { // this assumes the InAppBrowser can be excepted from the white-list
+        [self openInInAppBrowser:url withOptions:options];
+    }
+#endif
+}
+
+-(void)hide
+{
     // Set tmpWindow to hidden to make main webview responsive to touch again
     // https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
     self->tmpWindow.hidden = YES;
@@ -389,23 +398,6 @@ static CDVWKInAppBrowser* instance = nil;
         }
     });
     [windowState hidden];
-}
-
-- (void)openInCordovaWebView:(NSURL*)url withOptions:(NSString*)options
-{
-    NSURLRequest* request = [NSURLRequest requestWithURL:url];
-
-#ifdef __CORDOVA_4_0_0
-    // the webview engine itself will filter for this according to <allow-navigation> policy
-    // in config.xml for cordova-ios-4.0
-    [self.webViewEngine loadRequest:request];
-#else
-    if ([self.commandDelegate URLIsWhitelisted:url]) {
-        [self.webView loadRequest:request];
-    } else { // this assumes the InAppBrowser can be excepted from the white-list
-        [self openInInAppBrowser:url withOptions:options];
-    }
-#endif
 }
 
 
@@ -565,141 +557,76 @@ static CDVWKInAppBrowser* instance = nil;
     [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
 }
 
-- (BOOL)isValidCallbackId:(NSString *)callbackId
-{
-    NSError *err = nil;
-    // Initialize on first use
-    if (!self.cordovaPluginResultProxy.hasCallbackId) {
-        self.callbackIdPattern = [NSRegularExpression regularExpressionWithPattern:@"^InAppBrowser[0-9]{1,10}$" options:0 error:&err];
-        if (err != nil) {
-            // Couldn't initialize Regex; No is safer than Yes.
-            return NO;
-        }
-    }
-    if ([self.callbackIdPattern firstMatchInString:callbackId options:0 range:NSMakeRange(0, [callbackId length])]) {
-        return YES;
-    }
-    return NO;
-}
-
-
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
 - (void)sendBridgeResult:(NSString*) data {
     [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"bridgeresponse", @"data":data}];
 }
 
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// - (void)handleNativeResultWithString:(NSString*) jsonString {
-// 	NSError* __autoreleasing error = nil;
-//     NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+ - (void)handleNativeResultWithString:(NSString*) jsonString {
+     NSLog(@"%@", jsonString);
+ 	NSError* __autoreleasing error = nil;
+     NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
 
-// 	if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
-//         NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
-//         [self sendBridgeResult:jsonString];
-//         return;
-//     }
+ 	if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
+         NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
+         [self sendBridgeResult:jsonString];
+         return;
+     }
 
-//     NSArray * array = (NSArray*) jsonData;
-//     NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
-//     if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
-//         [self sendBridgeResult:jsonString];
-//         return;
-//     }
+     NSArray * array = (NSArray*) jsonData;
+     NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
+     if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
+         [self sendBridgeResult:jsonString];
+         return;
+     }
 
-//     NSString *action = (NSString *)inAppBrowserAction;
-//     if(action ==nil) {
-//         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
-//         [self sendBridgeResult:jsonString];
-//         return;
-//     }
+     NSString *action = (NSString *)inAppBrowserAction;
+     if(action ==nil) {
+         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
+         [self sendBridgeResult:jsonString];
+         return;
+     }
 
-//     if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
-//         [self.inAppBrowserViewController close];
-//         return;
-//     } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
-//         [self hideView];
-//         return;
-//     } else {
-//         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
-//         [self sendBridgeResult:jsonString];
-//     }
-// }
+     if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
+         [self.inAppBrowserViewController close];
+         return;
+     } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
+         [self hide];
+         return;
+     } else {
+         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+         [self sendBridgeResult:jsonString];
+     }
+ }
 
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// - (void)handleNativeResult:(NSURL*) url {
-//     if(![[url host] isEqualToString:@"poll"]) {
-//         return;
-//     }
+ - (void)handleNativeResult:(NSURL*) url {
+     if(![[url host] isEqualToString:@"poll"]) {
+         return;
+     }
 
-//     NSString* scriptResult = [url path];
-//     if ((scriptResult == nil) || ([scriptResult length] < 2)) {
-//         return;
-//     }
+     NSString* scriptResult = [url path];
+     if ((scriptResult == nil) || ([scriptResult length] < 2)) {
+         return;
+     }
 
 
-//     NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
-//     [self handleNativeResultWithString:jsonString];
+     NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
+     [self handleNativeResultWithString:jsonString];
 
-// }
+ }
 
-// - (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
-//     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
-//     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
-//         // Preference missing.
-//         return NO;
-//     }
-//     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
-//         if ([allowedScheme isEqualToString:scheme]) {
-//             return YES;
-//         }
-//     }
-//     return NO;
-// }
-
-// TODO: KPB - this is in the old forked code, there is no equivalent here
-// - (BOOL)webView:(UIWebView*)theWebView shouldStartLoadWithRequest:(NSURLRequest*)request navigationType:(UIWebViewNavigationType)navigationType {
-//     NSURL* url = request.URL;
-//     BOOL isTopLevelNavigation = [request.URL isEqual:[request mainDocumentURL]];
-
-//     // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
-//     // and the path, if present, should be a JSON-encoded value to pass to the callback.
-//     if ([[url scheme] isEqualToString:@"gap-iab"]) {
-//         [self handleInjectedScriptCallBack: url];
-//         return NO;
-//     }
-
-//     //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
-//     if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
-//         // Send a customscheme event.
-//         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-//                                                       messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
-//         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-//         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-//         return NO;
-//     }
-
-//     // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
-//     // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
-//     // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
-//     if([[url scheme] isEqualToString:@"gap-iab-native"]) {
-//         [self handleNativeResult:url];
-//         return NO;
-//     }
-
-//     if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
-//             //if is an app store link, let the system handle it, otherwise it fails to load it
-//         [theWebView stopLoading];
-//         [self openInSystem:url];
-//         return NO;
-//     }
-
-//     if (isTopLevelNavigation) {
-//         [self sendOKPluginResult:@{@"type":@"loadstart", @"url":[url absoluteString]}];
-//     }
-
-//     return YES;
-// }
-
+ - (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
+     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+         // Preference missing.
+         return NO;
+     }
+     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+         if ([allowedScheme isEqualToString:scheme]) {
+             return YES;
+         }
+     }
+     return NO;
+ }
 
 /**
  * The message handler bridge provided for the InAppBrowser is capable of executing any oustanding callback belonging
@@ -741,12 +668,35 @@ static CDVWKInAppBrowser* instance = nil;
         [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":[url absoluteString], @"code": @"-1", @"message": errorMessage}];
     }
 
-    //if is an app store link, let the system handle it, otherwise it fails to load it
-    if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
+     // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
+     // and the path, if present, should be a JSON-encoded value to pass to the callback.
+     if ([[url scheme] isEqualToString:@"gap-iab"]) {
+         [self handleInjectedScriptCallBack: url];
+         shouldStart = NO;
+     
+     }
+     //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+     else if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
+         // Send a customscheme event.
+         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                       messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
+         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
+         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+         shouldStart = NO;
+     }
+     // if is an app store link, let the system handle it, otherwise it fails to load it
+     else if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
         [theWebView stopLoading];
         [self openInSystem:url];
         shouldStart = NO;
-    }
+     }
+     // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
+     // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
+     // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
+     else if([[url scheme] isEqualToString:@"gap-iab-native"]) {
+         [self handleNativeResult:url];
+         shouldStart = NO;
+     }
     else if (([self.cordovaPluginResultProxy hasCallbackId]) && isTopLevelNavigation) {
         // Send a loadstart event for each top-level navigation (includes redirects).
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
@@ -772,33 +722,35 @@ static CDVWKInAppBrowser* instance = nil;
 
 #pragma mark WKScriptMessageHandler delegate
 
-// TODO: KPB - this is missing from this class - in fork, some of the forked code calls it.
-// NOTE it still has the old plugin result stuff - the callbackId is that of the script, not the Webview.
-// - (void)handleInjectedScriptCallBack:(NSURL*) url {
-//     NSString* scriptCallbackId = [url host];
-//     if (![self isValidCallbackId:scriptCallbackId]) {
-//         return;
-//     }
+- (void)handleInjectedScriptCallBack:(NSURL*) url {
+    // NOTE it still has the old plugin result stuff - the callbackId is that of the script, not the Webview.
+    NSString* scriptCallbackId = [url host];
+    if ([ScriptCallBackIdValidator isValid:scriptCallbackId]) {
+        return;
+    }
+    
+    CordovaPluginResultProxy* scriptPluginResultProxy =[[CordovaPluginResultProxy alloc] initWithCommanDelegate:self.commandDelegate];
+    scriptPluginResultProxy.callbackId = scriptCallbackId;
+    
+    NSString* scriptResult = [url path];
+    NSError* __autoreleasing error = nil;
 
-//     CDVPluginResult* pluginResult = nil;
-//     NSString* scriptResult = [url path];
-//     NSError* __autoreleasing error = nil;
+    // The message should be a JSON-encoded array of the result of the script which executed.
+    if (scriptResult == nil || [scriptResult length] <= 1)
+    {
+        [scriptPluginResultProxy sendOKWithMessageAsArray:@[]];
+        return;
+    }
 
-//     // The message should be a JSON-encoded array of the result of the script which executed.
-//     if ((scriptResult != nil) && ([scriptResult length] > 1)) {
-//         scriptResult = [scriptResult substringFromIndex:1];
-//         NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-//         if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]]) {
-//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:(NSArray*)decodedResult];
-//         } else {
-//             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_JSON_EXCEPTION];
-//         }
-//     } else {
-//         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
-//     }
-//     [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
-
-// }
+     scriptResult = [scriptResult substringFromIndex:1];
+    NSData* decodedResult = [NSJSONSerialization JSONObjectWithData:[scriptResult dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+    if ((error == nil) && [decodedResult isKindOfClass:[NSArray class]])
+    {
+        [scriptPluginResultProxy sendOKWithMessageAsArray:(NSArray*)decodedResult];
+        return;
+    }
+    [scriptPluginResultProxy sendJSONError];
+ }
 
 - (void)userContentController:(nonnull WKUserContentController *)userContentController didReceiveScriptMessage:(nonnull WKScriptMessage *)message {
     if([message.body isKindOfClass:[NSDictionary class]]){
@@ -854,18 +806,7 @@ static CDVWKInAppBrowser* instance = nil;
                 url = @"";
             }
         }
-// TODO: KPB - this is from our fork, but not implemented.
-// TODO: See https://stackoverflow.com/questions/25792131/how-to-get-jscontext-from-wkwebview
-//         JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
-//         [jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
-//                 NSLog(@"WEB JS Error: %@", value);
-//             }];
-//
-//         jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
-//             //The callback is expecting a string as per inject script, this is wrapped in an outer array.
-//             NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
-//             [self handleNativeResultWithString: canonicalisedResponse];
-//         }];
+
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstop", @"url":url}];
         if ([windowState isUnhiding]) {
             [self showWithHiddenAs:NO withNoAnimate:true];
@@ -969,19 +910,56 @@ BOOL isExiting = FALSE;
 // KPB - this is largely different from the original fork, but neither set of code appears to have our stuff in it.
 - (void)createViews
 {
+
     // We create the views in code for primarily for ease of upgrades and not requiring an external .xib to be included
 
     CGRect webViewBounds = self.view.bounds;
     BOOL toolbarIsAtBottom = ![_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop];
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
     WKUserContentController* userContentController = [[WKUserContentController alloc] init];
+    
+    // Inject the handler here.
+    JavaScriptBridgeInterface* handler = [[JavaScriptBridgeInterface alloc] initWithHandler:^(NSString* response){
+        NSLog(@"%@", response);
+        [self.navigationDelegate handleNativeResultWithString:response];
+    }];
+    [userContentController addScriptMessageHandler:handler name:IAB_BRIDGE_NAME];
+
+    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+//    NSString *myScriptSource = @"alert('Hello, World!')";
+//    WKUserScript *userScript = [[WKUserScript alloc] initWithSource:myScriptSource injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+//    [userContentController addUserScript:userScript];
+//    [userContentController addScriptMessageHandler:self name:@"buttonClicked"];
+    
+    
+    // TODO: KPB - this is from our fork, but not implemented.
+    // TODO: See https://stackoverflow.com/questions/25792131/how-to-get-jscontext-from-wkwebview
+    //         JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
+    //         [jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
+    //                 NSLog(@"WEB JS Error: %@", value);
+    //             }];
+    //
+    
+//    - (NSString*)respond:(NSString*)response {
+//        if([response isEqualToString:@"[]"]){
+//            return response;
+//        }
+//
+//        callbackFunction(response);
+//        return response;
+//    }
+    //         jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
+    //             //The callback is expecting a string as per inject script, this is wrapped in an outer array.
+    //             NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
+    //             [self handleNativeResultWithString: canonicalisedResponse];
+    //         }];
+    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
     configuration.userContentController = userContentController;
 #if __has_include("CDVWKProcessPoolFactory.h")
     configuration.processPool = [[CDVWKProcessPoolFactory sharedFactory] sharedProcessPool];
 #endif
-    [configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME];
 
     //WKWebView options
     configuration.allowsInlineMediaPlayback = _browserOptions.allowinlinemediaplayback;
@@ -997,6 +975,7 @@ BOOL isExiting = FALSE;
     }
 
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
+
 
     [self.view addSubview:self.webView];
     [self.view sendSubviewToBack:self.webView];
