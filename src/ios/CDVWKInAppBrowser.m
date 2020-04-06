@@ -36,6 +36,7 @@
 #define    kInAppBrowserToolbarBarPositionTop @"top"
 
 #define    IAB_BRIDGE_NAME @"cordova_iab"
+#define    JAVASCRIPT_BRIDGE_NAME @"tombola_javascript_bridge"
 
 #define    TOOLBAR_HEIGHT 44.0
 #define    STATUSBAR_HEIGHT 20.0
@@ -338,7 +339,7 @@ static CDVWKInAppBrowser* instance = nil;
                 }
                 strongSelf->tmpWindow = [[UIWindow alloc] initWithFrame:frame];
             }
-            UIViewController *tmpController = [[UIViewController alloc] init];
+            UIViewController *tmpController = [[UIViewController alloc] initWithNibName:nil bundle:nil];
 
             [strongSelf->tmpWindow setRootViewController:tmpController];
             [strongSelf->tmpWindow setWindowLevel:UIWindowLevelNormal];
@@ -482,7 +483,8 @@ static CDVWKInAppBrowser* instance = nil;
 - (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper
 {
     // Ensure a message handler bridge is created to communicate with the CDVWKInAppBrowserViewController
-    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];
+    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];    
+    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w.JavaScriptBridgeInterfaceObject){w.JavaScriptBridgeInterfaceObject = {respond: function(response) { if(response !== []) { w.webkit.messageHandlers.%@.postMessage({data:response}); } } };}})(window)", JAVASCRIPT_BRIDGE_NAME]];
 
     if (jsWrapper != nil) {
         NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
@@ -565,26 +567,44 @@ static CDVWKInAppBrowser* instance = nil;
      NSLog(@"%@", jsonString);
      NSError* __autoreleasing error = nil;
      NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+     
+     if(error != nil)
+     {
+         NSLog(@"The poll script return value is not parsable by native code");
+         [self sendBridgeResult:jsonString];
+     }
 
- 	if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
-         NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
+ 	if([jsonData isKindOfClass:[NSArray class]])
+    {
+        // It is a non-natively handled event
+        [self sendBridgeResult:jsonString];
+        return;
+    }
+     
+     NSString* dataType = [jsonData class].description;
+     
+     if(![jsonData isKindOfClass:[NSDictionary class]]){
+         // It is a non-natively handled event
          [self sendBridgeResult:jsonString];
          return;
      }
 
-     NSArray * array = (NSArray*) jsonData;
-     NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
-     if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
-         [self sendBridgeResult:jsonString];
-         return;
+     NSDictionary * actionDictionary = (NSDictionary*) jsonData;
+     NSData* inAppBrowserAction = [actionDictionary valueForKey: @"InAppBrowserAction"];
+     if(inAppBrowserAction == nil)
+     {
+        NSLog(@"The poll script return value looked like it should be handled natively, but the action was null - returning json directly to JS");
+        [self sendBridgeResult:jsonString];
+        return;
      }
-
+     if(![inAppBrowserAction isKindOfClass:[NSString class]])
+     {
+        NSLog(@"The poll script return value looked like it should be handled natively, but the action was not a string - returning json directly to JS");
+        [self sendBridgeResult:jsonString];
+        return;
+     }
+     
      NSString *action = (NSString *)inAppBrowserAction;
-     if(action ==nil) {
-         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
-         [self sendBridgeResult:jsonString];
-         return;
-     }
 
      if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
          [self.inAppBrowserViewController close];
@@ -593,7 +613,7 @@ static CDVWKInAppBrowser* instance = nil;
          [self hide];
          return;
      } else {
-         NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+         NSLog(@"The poll script return is correctly formed to be handled natively, but the action '%@' is not handled - returning json directly to JS", action);
          [self sendBridgeResult:jsonString];
      }
  }
@@ -814,6 +834,7 @@ static CDVWKInAppBrowser* instance = nil;
     }
 }
 
+
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(NSError*)error
 {
     if (![self.cordovaPluginResultProxy hasCallbackId]) {
@@ -848,8 +869,9 @@ static CDVWKInAppBrowser* instance = nil;
 {
     [self.cordovaPluginResultProxy sendTerminatingExitPluginResult];
 
-    // TODO: KPB - look into the message Handler - it looks like it might actually do the same job as our JS injection....
+    
     [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:IAB_BRIDGE_NAME];
+    [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:JAVASCRIPT_BRIDGE_NAME];
     self.inAppBrowserViewController.configuration = nil;
 
     [self.inAppBrowserViewController.webView stopLoading];
@@ -918,12 +940,7 @@ BOOL isExiting = FALSE;
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
     WKUserContentController* userContentController = [[WKUserContentController alloc] init];
     
-    // Inject the handler here.
-    JavaScriptBridgeInterface* handler = [[JavaScriptBridgeInterface alloc] initWithHandler:^(NSString* response){
-        NSLog(@"%@", response);
-        [self.navigationDelegate handleNativeResultWithString:response];
-    }];
-    [userContentController addScriptMessageHandler:handler name:IAB_BRIDGE_NAME];
+
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //    NSString *myScriptSource = @"alert('Hello, World!')";
@@ -960,6 +977,15 @@ BOOL isExiting = FALSE;
 #if __has_include("CDVWKProcessPoolFactory.h")
     configuration.processPool = [[CDVWKProcessPoolFactory sharedFactory] sharedProcessPool];
 #endif
+    
+    // Inject the handler here.
+    JavaScriptBridgeInterface* handler = [[JavaScriptBridgeInterface alloc] initWithHandler:^(NSString* response){
+        NSLog(@"%@", response);
+        [self.navigationDelegate handleNativeResultWithString:response];
+    }];
+    
+    [configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
+    [configuration.userContentController  addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
 
     //WKWebView options
     configuration.allowsInlineMediaPlayback = _browserOptions.allowinlinemediaplayback;

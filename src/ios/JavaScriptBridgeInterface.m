@@ -1,6 +1,5 @@
 #pragma mark ******************** WIP
 # import "JavaScriptBridgeInterface.h"
-# import "ScriptCallBackIdValidator.h"
 
 @implementation JavaScriptBridgeInterface
 
@@ -12,7 +11,7 @@ void (^responseHandler)(NSString*);
     return self;
 }
 
-- (void)userContentController:(WKUserContentController*)userContentController didReceiveScriptMessage:(WKScriptMessage*)message
+- (void)userContentController:(WKUserContentController*)userContentController didReceiveScriptMessage:(nonnull WKScriptMessage *)message
 {
     // TODO: KPB - this may not be correct. It works with the direct injection from the IABTester, but the pukka bridge might not.
     if(![message.body isKindOfClass:[NSDictionary class]]){
@@ -21,10 +20,8 @@ void (^responseHandler)(NSString*);
     
     NSDictionary* response = (NSDictionary*)message.body;
     
-    NSString* responseData = (NSString*)response[@"d"];
-    NSString* callbackId = (NSString*)response[@"id"];
-    if(![ScriptCallBackIdValidator isValid:callbackId]) {
-        NSLog(@"The callback ID %@ is not valid for the bridge, ignoring", callbackId);
+    NSString* responseData = (NSString*)response[@"data"];
+    if ([responseData isEqual: @"[]"]){
         return;
     }
     responseHandler(responseData);
