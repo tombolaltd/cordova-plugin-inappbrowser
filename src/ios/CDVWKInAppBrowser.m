@@ -107,7 +107,6 @@ static CDVWKInAppBrowser* instance = nil;
     [self.inAppBrowserViewController close];
 }
 
-// KPB - Checked
 - (BOOL) isSystemUrl:(NSURL*)url
 {
     if ([[url host] isEqualToString:@"itunes.apple.com"]) {
@@ -816,7 +815,6 @@ static CDVWKInAppBrowser* instance = nil;
     [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":url, @"code": [NSNumber numberWithInteger:error.code], @"message": error.localizedDescription}];
 }
 
-// KPB - checked.
 - (void)browserExit
 {
     [self.cordovaPluginResultProxy sendTerminatingExitPluginResult];

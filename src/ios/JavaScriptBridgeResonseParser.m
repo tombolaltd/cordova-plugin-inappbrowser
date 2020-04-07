@@ -35,16 +35,13 @@
 
     + (NSString*)parse:(NSString*)jsonString
     {
-        NSLog(@"%@", jsonString); // TODO: KPB - Remove
         if (jsonString == nil || [jsonString  isEqual: @"[]"] || [jsonString isEqual:@"[[]]"])
         {
             return nil;
-            
         }
-        
+
         NSError* __autoreleasing error = nil;
         NSArray* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-        NSLog(@"Type = %@", [jsonData class]);
         if(error != nil)
         {
             NSLog(@"The poll script return value is not parsable by native code - returning json directly to JS");
