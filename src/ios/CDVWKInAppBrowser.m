@@ -21,6 +21,7 @@
 #import "WindowState.h"
 #import "JavaScriptBridgeInterface.h"
 #import "ScriptCallBackIdValidator.h"
+#import "JavaScriptBridgeResonseParser.h"
 
 #if __has_include("CDVWKProcessPoolFactory.h")
 #import "CDVWKProcessPoolFactory.h"
@@ -73,6 +74,13 @@ static CDVWKInAppBrowser* instance = nil;
     _previousStatusBarStyle = -1;
     _beforeload = @"";
     _waitForBeforeload = NO;
+    // This is a dictionary of handlers for natively execute actions. The keys should be lowe cased to ensure case insenstivity.
+    // Fecking feck - every single other language I've ever used orders key, object. So why not be hipster and
+    // reverse that trend....
+    [JavaScriptBridgeResonseParser initializeWithCallbacks:[NSDictionary dictionaryWithObjectsAndKeys:
+        ^{[self hide];}, @"hide",
+        ^{[self.inAppBrowserViewController close];}, @"close",
+        nil]]; // Naturally, you shoul terminate a dictionary initialisation with a null. Then call null nill. But don't confuse nil with nill or Nil for that matter.
     [windowState initialised];
 }
 
@@ -559,56 +567,12 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
  - (void)handleNativeResultWithString:(NSString*) jsonString {
-     NSLog(@"%@", jsonString);
-     NSError* __autoreleasing error = nil;
-     NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-     
-     if(error != nil)
+     NSString* result = [JavaScriptBridgeResonseParser parse:jsonString];
+     if (result == nil)
      {
-         NSLog(@"The poll script return value is not parsable by native code");
-         [self sendBridgeResult:jsonString];
-     }
-
- 	if([jsonData isKindOfClass:[NSArray class]])
-    {
-        // It is a non-natively handled event
-        [self sendBridgeResult:jsonString];
-        return;
-    }
-     
-     if(![jsonData isKindOfClass:[NSDictionary class]]){
-         // It is a non-natively handled event
-         [self sendBridgeResult:jsonString];
          return;
      }
-
-     NSDictionary * actionDictionary = (NSDictionary*) jsonData;
-     NSData* inAppBrowserAction = [actionDictionary valueForKey: @"InAppBrowserAction"];
-     if(inAppBrowserAction == nil)
-     {
-        NSLog(@"The poll script return value looked like it should be handled natively, but the action was null - returning json directly to JS");
-        [self sendBridgeResult:jsonString];
-        return;
-     }
-     if(![inAppBrowserAction isKindOfClass:[NSString class]])
-     {
-        NSLog(@"The poll script return value looked like it should be handled natively, but the action was not a string - returning json directly to JS");
-        [self sendBridgeResult:jsonString];
-        return;
-     }
-     
-     NSString *action = (NSString *)inAppBrowserAction;
-
-     if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
-         [self.inAppBrowserViewController close];
-         return;
-     } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
-         [self hide];
-         return;
-     } else {
-         NSLog(@"The poll script return is correctly formed to be handled natively, but the action '%@' is not handled - returning json directly to JS", action);
-         [self sendBridgeResult:jsonString];
-     }
+     [self sendBridgeResult:jsonString];
  }
 
  - (void)handleNativeResult:(NSURL*) url {
