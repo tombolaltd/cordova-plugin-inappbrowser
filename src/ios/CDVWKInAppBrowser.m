@@ -480,7 +480,7 @@ static CDVWKInAppBrowser* instance = nil;
 {
     // Ensure a message handler bridge is created to communicate with the CDVWKInAppBrowserViewController
     [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];    
-    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w.JavaScriptBridgeInterfaceObject){w.JavaScriptBridgeInterfaceObject = {respond: function(response) { if(response !== []) { w.webkit.messageHandlers.%@.postMessage({data:response}); } } };}})(window)", JAVASCRIPT_BRIDGE_NAME]];
+    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w.JavaScriptBridgeInterfaceObject){w.JavaScriptBridgeInterfaceObject = {respond: function(response) { if(response !== '[]') { w.webkit.messageHandlers.%@.postMessage({data:response}); } } };}})(window)", JAVASCRIPT_BRIDGE_NAME]];
 
     if (jsWrapper != nil) {
         NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
@@ -899,9 +899,6 @@ BOOL isExiting = FALSE;
         NSLog(@"%@", response);
         [self.navigationDelegate handleNativeResultWithString:response];
     }];
-    
-    [configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
-    [configuration.userContentController  addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
 
     //WKWebView options
     configuration.allowsInlineMediaPlayback = _browserOptions.allowinlinemediaplayback;
@@ -917,6 +914,9 @@ BOOL isExiting = FALSE;
     }
 
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
+    
+    [self.webView.configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
+    [self.webView.configuration.userContentController  addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
 
     [self.view addSubview:self.webView];
     [self.view sendSubviewToBack:self.webView];
