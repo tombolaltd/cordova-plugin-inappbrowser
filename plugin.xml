@@ -113,6 +113,8 @@
         <source-file src="src/ios/CordovaPluginResultProxy.m" />
         <header-file src="src/ios/JavaScriptBridgeInterface.h" />
         <source-file src="src/ios/JavaScriptBridgeInterface.m" />
+        <header-file src="src/ios/JavaScriptBridgeResonseParser.h" />
+        <source-file src="src/ios/JavaScriptBridgeResonseParser.m" />
         <header-file src="src/ios/ScriptCallBackIdValidator.h" />
         <source-file src="src/ios/ScriptCallBackIdValidator.m" />
         <header-file src="src/ios/WindowState.h" />

@@ -24,6 +24,9 @@ void (^responseHandler)(NSString*);
     if ([responseData isEqual: @"[]"]){
         return;
     }
-    responseHandler(responseData);
+    
+    //The callback is expecting a string as per inject script, this is wrapped in an outer array.
+    NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", responseData];
+    responseHandler(canonicalisedResponse);
 }
 @end

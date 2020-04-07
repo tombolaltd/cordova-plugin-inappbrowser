@@ -563,6 +563,45 @@ static CDVWKInAppBrowser* instance = nil;
     [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"bridgeresponse", @"data":data}];
 }
 
+
+
+//- (void)handleNativeResultWithString:(NSString*) jsonString {
+//    NSError* __autoreleasing error = nil;
+//    NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
+//
+//    if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
+//        NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
+//        [self sendBridgeResult:jsonString];
+//        return;
+//    }
+//
+//    NSArray * array = (NSArray*) jsonData;
+//    NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
+//    if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
+//        [self sendBridgeResult:jsonString];
+//        return;
+//    }
+//
+//    NSString *action = (NSString *)inAppBrowserAction;
+//    if(action ==nil) {
+//        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
+//        [self sendBridgeResult:jsonString];
+//        return;
+//    }
+//
+//    if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
+//        [self.inAppBrowserViewController close];
+//        return;
+//    } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
+//        [self hideView];
+//        return;
+//    } else {
+//        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+//        [self sendBridgeResult:jsonString];
+//    }
+//}
+
+// TODO: KPB  - THIS ONE.......
  - (void)handleNativeResultWithString:(NSString*) jsonString {
      NSLog(@"%@", jsonString);
      NSError* __autoreleasing error = nil;
@@ -580,8 +619,6 @@ static CDVWKInAppBrowser* instance = nil;
         [self sendBridgeResult:jsonString];
         return;
     }
-     
-     NSString* dataType = [jsonData class].description;
      
      if(![jsonData isKindOfClass:[NSDictionary class]]){
          // It is a non-natively handled event
@@ -743,7 +780,7 @@ static CDVWKInAppBrowser* instance = nil;
 #pragma mark WKScriptMessageHandler delegate
 
 - (void)handleInjectedScriptCallBack:(NSURL*) url {
-    // NOTE it still has the old plugin result stuff - the callbackId is that of the script, not the Webview.
+    // NOTE the callbackId is that of the script, not the Webview.
     NSString* scriptCallbackId = [url host];
     if ([ScriptCallBackIdValidator isValid:scriptCallbackId]) {
         return;
