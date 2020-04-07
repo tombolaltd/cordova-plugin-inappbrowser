@@ -406,20 +406,14 @@ static CDVWKInAppBrowser* instance = nil;
     [windowState hidden];
 }
 
-
-// TODO: KPB - Figure out why this is different to current
-// FROM OUR FORK
-// - (void)openInSystem:(NSURL*) url {
-//     if ([[UIApplication sharedApplication] canOpenURL:url]) {
-//         [[UIApplication sharedApplication] openURL:url];
-//     } else { // handle any custom schemes to plugins
-//         [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
-//     }
-// }
 - (void)openInSystem:(NSURL*)url
 {
-    [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
-    [[UIApplication sharedApplication] openURL:url];
+    // See https://github.com/apache/cordova-plugin-inappbrowser/commit/11ba4c4e7e4f503b7d589339b9b9d6060970ac66?diff=unified
+    // The point the new fork cam from had a regression bug in it.
+    if ([[UIApplication sharedApplication] openURL:url] == NO) {
+        [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
+        [[UIApplication sharedApplication] openURL:url];
+    }
 }
 
 - (void)loadAfterBeforeload:(CDVInvokedUrlCommand*)command
