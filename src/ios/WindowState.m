@@ -1,4 +1,3 @@
-#pragma mark ******************** WIP
 #import "WindowState.h"
 
 @implementation WindowState
@@ -70,13 +69,12 @@ WindowStates currentState;
 - (id)init
 {
     self = [super init];
-    // if( self = [super init])
-    // {
+
     if (currentState != Initialising)
     {
         [self setState:Initialising];
     }
-    // }
+
     return self;
 }
 
@@ -89,12 +87,6 @@ WindowStates currentState;
     NSLog(@"current window state changed from %@ to %@", [[self class] windowStateToString:oldState], [[self class] windowStateToString:newState]);
 }
 
-// static bool unhiding = NO;
-// static bool showing = NO;
-// static bool hiding = NO;
-// static bool closing = NO;
-// static bool openable = YES; // was canOpen
-
 - (void)initialised
 {
     [self setState:Ready];
@@ -103,28 +95,16 @@ WindowStates currentState;
 - (void)close
 {
     [self setState:Closing];
-    // unhiding = NO;
-    // showing = NO;
-    // hiding = NO;
-    // closing = NO;
-    // closing = YES;
 }
 
 - (void)closed
 {
     [self setState:Exited];
-    // unhiding = NO;
-    // showing = NO;
-    // hiding = NO;
-    // closing = NO;
-    // openable = YES; // TODO: KPB - confirm, untested but this is likely to be the case.
-
 }
 
 - (void)hide
 {
     [self setState:Hiding];
-    // hiding = YES;
 }
 
 - (void)hidden
@@ -140,24 +120,20 @@ WindowStates currentState;
 - (void)displayed
 {
     [self setState:Displayed];
-    // unhiding = NO;
 }
 
 - (void)opening
 {
     [self setState:Opening];
-    // openable = NO;
 }
 
 - (bool)canHide
 {
-    // return showing || unhiding || hiding;
     return currentState == Displayed || currentState == Unhiding || currentState == Hiding;
 }
 
 - (bool)canOpen
 {
-    // TODO: KPB - what about navigating an already open IAB?
     return currentState == Ready;
 }
 

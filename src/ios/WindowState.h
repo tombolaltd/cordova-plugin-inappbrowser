@@ -1,4 +1,3 @@
-#pragma mark ******************** WIP
 @interface WindowState : NSObject
     + (instancetype)sharedInstance;
 

@@ -153,9 +153,6 @@ static CDVWKInAppBrowser* instance = nil;
     [self.cordovaPluginResultProxy sendOK];
 }
 
-// *********************************************************************************************************
-// TODO: KPB - This is replicated in the original code, but is substantially different, need to check this.
-// *********************************************************************************************************
 - (void)openInInAppBrowser:(NSURL*)url withOptions:(NSString*)options
 {
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
@@ -402,8 +399,6 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 
-
-
 // TODO: KPB - Figure out why this is different to current
 // FROM OUR FORK
 // - (void)openInSystem:(NSURL*) url {
@@ -563,45 +558,6 @@ static CDVWKInAppBrowser* instance = nil;
     [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"bridgeresponse", @"data":data}];
 }
 
-
-
-//- (void)handleNativeResultWithString:(NSString*) jsonString {
-//    NSError* __autoreleasing error = nil;
-//    NSData* jsonData = [NSJSONSerialization JSONObjectWithData:[jsonString dataUsingEncoding:NSUTF8StringEncoding] options:kNilOptions error:&error];
-//
-//    if(error != nil || ![jsonData isKindOfClass:[NSArray class]]){
-//        NSLog(@"The poll script return value looked like it shoud be handled natively, but errror or was badly formed - returning json directly to JS");
-//        [self sendBridgeResult:jsonString];
-//        return;
-//    }
-//
-//    NSArray * array = (NSArray*) jsonData;
-//    NSData* inAppBrowserAction = [array[0] valueForKey: @"InAppBrowserAction"];
-//    if(inAppBrowserAction == nil  || ![inAppBrowserAction isKindOfClass:[NSString class]]) {
-//        [self sendBridgeResult:jsonString];
-//        return;
-//    }
-//
-//    NSString *action = (NSString *)inAppBrowserAction;
-//    if(action ==nil) {
-//        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (empty when cast) - returning json directly to JS");
-//        [self sendBridgeResult:jsonString];
-//        return;
-//    }
-//
-//    if([action caseInsensitiveCompare:@"close"] == NSOrderedSame) {
-//        [self.inAppBrowserViewController close];
-//        return;
-//    } else if ([action caseInsensitiveCompare:@"hide"] == NSOrderedSame) {
-//        [self hideView];
-//        return;
-//    } else {
-//        NSLog(@"The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
-//        [self sendBridgeResult:jsonString];
-//    }
-//}
-
-// TODO: KPB  - THIS ONE.......
  - (void)handleNativeResultWithString:(NSString*) jsonString {
      NSLog(@"%@", jsonString);
      NSError* __autoreleasing error = nil;
@@ -848,6 +804,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)didStartProvisionalNavigation:(WKWebView*)theWebView
 {
+    // NOTE: the second line was commeneted out by Apache at the time of writing.
     NSLog(@"didStartProvisionalNavigation");
 //    self.inAppBrowserViewController.currentURL = theWebView.URL;
 }
@@ -966,7 +923,6 @@ BOOL isExiting = FALSE;
     //NSLog(@"dealloc");
 }
 
-// KPB - this is largely different from the original fork, but neither set of code appears to have our stuff in it.
 - (void)createViews
 {
 
@@ -976,39 +932,6 @@ BOOL isExiting = FALSE;
     BOOL toolbarIsAtBottom = ![_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop];
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
     WKUserContentController* userContentController = [[WKUserContentController alloc] init];
-    
-
-
-    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//    NSString *myScriptSource = @"alert('Hello, World!')";
-//    WKUserScript *userScript = [[WKUserScript alloc] initWithSource:myScriptSource injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
-//    [userContentController addUserScript:userScript];
-//    [userContentController addScriptMessageHandler:self name:@"buttonClicked"];
-    
-    
-    // TODO: KPB - this is from our fork, but not implemented.
-    // TODO: See https://stackoverflow.com/questions/25792131/how-to-get-jscontext-from-wkwebview
-    //         JSContext *jsContext = [theWebView valueForKeyPath:@"documentView.webView.mainFrame.javaScriptContext"]; // Undocumented access to UIWebView's JSContext
-    //         [jsContext setExceptionHandler:^(JSContext *context, JSValue *value) {
-    //                 NSLog(@"WEB JS Error: %@", value);
-    //             }];
-    //
-    
-//    - (NSString*)respond:(NSString*)response {
-//        if([response isEqualToString:@"[]"]){
-//            return response;
-//        }
-//
-//        callbackFunction(response);
-//        return response;
-//    }
-    //         jsContext[@"JavaScriptBridgeInterfaceObject"] = [[JavaScriptBridgeInterfaceObject alloc] initWithCallback:^(NSString* response){
-    //             //The callback is expecting a string as per inject script, this is wrapped in an outer array.
-    //             NSString* canonicalisedResponse  = [NSString stringWithFormat:@"[%@]", response];
-    //             [self handleNativeResultWithString: canonicalisedResponse];
-    //         }];
-    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
     WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
     configuration.userContentController = userContentController;
 #if __has_include("CDVWKProcessPoolFactory.h")
@@ -1038,7 +961,6 @@ BOOL isExiting = FALSE;
     }
 
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
-
 
     [self.view addSubview:self.webView];
     [self.view sendSubviewToBack:self.webView];
@@ -1309,7 +1231,6 @@ BOOL isExiting = FALSE;
     }
 }
 
-// TODO KPB - THIS IS THE LOAD METHOD??????
 - (void)viewDidLoad
 {
     viewRenderedAtLeastOnce = FALSE;
