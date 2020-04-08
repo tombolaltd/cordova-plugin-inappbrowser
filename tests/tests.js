@@ -182,24 +182,14 @@ exports.defineAutoTests = function () {
             });
         });
     };
-    if (isIos) {
-        createTests('usewkwebview=no');
-        createTests('usewkwebview=yes');
-    } else {
-        createTests();
-    }
+
+    createTests();
 };
 
 exports.defineManualTests = function (contentEl, createActionButton) {
 
     var platformOpts = '';
     var platform_info = '';
-    if (isIos) {
-        platformOpts = 'usewkwebview=no';
-        platform_info = '<h1>Webview</h1>' +
-            '<p>Use this button to toggle the Webview implementation.</p>' +
-            '<div id="webviewToggle"></div>';
-    }
 
     function doOpen (url, target, params, numExpectedRedirects, useWindowOpen) {
         numExpectedRedirects = numExpectedRedirects || 0;
@@ -545,7 +535,6 @@ exports.defineManualTests = function (contentEl, createActionButton) {
     var videohtml = basePath + 'video.html';
     if (isIos) {
         createActionButton('Webview=UIWebView', function () {
-            var webviewOption = 'usewkwebview=';
             var webviewToggle = document.getElementById('webviewToggle');
             var button = webviewToggle.getElementsByClassName('topcoat-button')[0];
             if (platformOpts === webviewOption + 'yes') {

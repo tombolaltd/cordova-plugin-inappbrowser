@@ -27,7 +27,6 @@
 - (void)pluginInitialize
 {
     // default values
-    self.usewkwebview = YES;
 
 #if __has_include("CDVWKWebViewEngine.h")
     self.wkwebviewavailable = YES;
@@ -40,11 +39,10 @@
 {
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
-    if(browserOptions.usewkwebview && !self.wkwebviewavailable){
-        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:@{@"type":@"loaderror", @"message": @"usewkwebview option specified but but no plugin that supplies a WKWebView engine is present"}] callbackId:command.callbackId];
+    if(!self.wkwebviewavailable){
+        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:@{@"type":@"loaderror", @"message": @"wkwebview is mandatory but but no plugin that supplies a WKWebView engine is present"}] callbackId:command.callbackId];
         return;
     }
-    self.usewkwebview = browserOptions.usewkwebview;
     [[CDVWKInAppBrowser getInstance] open:command];
 }
 
