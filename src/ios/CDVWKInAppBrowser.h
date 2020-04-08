@@ -23,6 +23,7 @@
 #import "CDVWKInAppBrowserUIDelegate.h"
 #import "CDVInAppBrowserOptions.h"
 #import "CDVInAppBrowserNavigationController.h"
+#import "CordovaPluginResultProxy.h"
 
 @class CDVWKInAppBrowserViewController;
 
@@ -37,7 +38,7 @@
 @property (nonatomic, retain) CDVWKInAppBrowser* instance;
 @property (nonatomic, retain) CDVWKInAppBrowserViewController* inAppBrowserViewController;
 @property (nonatomic, copy) NSString* callbackId;
-@property (nonatomic, copy) NSRegularExpression *callbackIdPattern;
+@property (nonatomic) CordovaPluginResultProxy* cordovaPluginResultProxy;
 
 + (id) getInstance;
 - (void)open:(CDVInvokedUrlCommand*)command;
@@ -46,6 +47,8 @@
 - (void)show:(CDVInvokedUrlCommand*)command;
 - (void)hide:(CDVInvokedUrlCommand*)command;
 - (void)loadAfterBeforeload:(CDVInvokedUrlCommand*)command;
+- (void)unHide:(CDVInvokedUrlCommand*)command;
+- (void)update:(CDVInvokedUrlCommand*)command;
 
 @end
 

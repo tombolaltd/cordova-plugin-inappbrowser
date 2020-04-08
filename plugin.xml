@@ -92,31 +92,33 @@
                 <param name="ios-package" value="CDVSystemBrowser" />
                 <param name="onload" value="true" />
             </feature>
-            <!-- TODO: Remove the UI In App Browser? we don't need to support both...-->
-            <feature name="UIInAppBrowser">
-                <param name="ios-package" value="CDVUIInAppBrowser" />
-                <param name="onload" value="true" />
-            </feature>
             <feature name="WKInAppBrowser">
                 <param name="ios-package" value="CDVWKInAppBrowser" />
                 <param name="onload" value="true" />
             </feature>
         </config-file>
-
         <header-file src="src/ios/CDVInAppBrowser.h" />
-	    <source-file src="src/ios/CDVInAppBrowser.m" />
+        <source-file src="src/ios/CDVInAppBrowser.m" />
         <header-file src="src/ios/CDVInAppBrowserOptions.h" />
         <source-file src="src/ios/CDVInAppBrowserOptions.m" />
         <header-file src="src/ios/CDVInAppBrowserNavigationController.h" />
         <source-file src="src/ios/CDVInAppBrowserNavigationController.m" />
-	    <header-file src="src/ios/CDVUIInAppBrowser.h" />
-	    <source-file src="src/ios/CDVUIInAppBrowser.m" />
-	    <header-file src="src/ios/CDVWKInAppBrowser.h" />
-	    <source-file src="src/ios/CDVWKInAppBrowser.m" />
-	    <header-file src="src/ios/CDVWKInAppBrowserUIDelegate.h" />
-	    <source-file src="src/ios/CDVWKInAppBrowserUIDelegate.m" />
+        <header-file src="src/ios/CDVWKInAppBrowser.h" />
+        <source-file src="src/ios/CDVWKInAppBrowser.m" />
+        <header-file src="src/ios/CDVWKInAppBrowserUIDelegate.h" />
+        <source-file src="src/ios/CDVWKInAppBrowserUIDelegate.m" />
         <header-file src="src/ios/CDVSystemBrowser.h" />
-	    <source-file src="src/ios/CDVSystemBrowser.m" />
-	    <framework src="CoreGraphics.framework" />
+        <source-file src="src/ios/CDVSystemBrowser.m" />
+        <header-file src="src/ios/CordovaPluginResultProxy.h" />
+        <source-file src="src/ios/CordovaPluginResultProxy.m" />
+        <header-file src="src/ios/JavaScriptBridgeInterface.h" />
+        <source-file src="src/ios/JavaScriptBridgeInterface.m" />
+        <header-file src="src/ios/JavaScriptBridgeResonseParser.h" />
+        <source-file src="src/ios/JavaScriptBridgeResonseParser.m" />
+        <header-file src="src/ios/ScriptCallBackIdValidator.h" />
+        <source-file src="src/ios/ScriptCallBackIdValidator.m" />
+        <header-file src="src/ios/WindowState.h" />
+        <source-file src="src/ios/WindowState.m" />
+        <framework src="CoreGraphics.framework" />
     </platform>
 </plugin>

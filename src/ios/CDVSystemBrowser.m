@@ -5,7 +5,6 @@
 
 const int INITIAL_STATUS_BAR_STYLE = -1;
 
-
 -(void) openUrl:(NSString*)url {
         CDVPluginResult* pluginResult;
 

@@ -17,10 +17,8 @@
  under the License.
  */
 
-
 @interface CDVInAppBrowserOptions : NSObject {}
 
-@property (nonatomic, assign) BOOL usewkwebview;
 @property (nonatomic, assign) BOOL location;
 @property (nonatomic, assign) BOOL toolbar;
 @property (nonatomic, copy) NSString* closebuttoncaption;
