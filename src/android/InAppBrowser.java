@@ -148,6 +148,12 @@ public class InAppBrowser extends CordovaPlugin {
     private String[] allowedSchemes;
     private InAppBrowserClient currentClient;
 
+    public InAppBrowser() {
+        super();
+        WindowState.initialised();
+
+    }
+
     /**
      * Executes the request and returns PluginResult.
      *
