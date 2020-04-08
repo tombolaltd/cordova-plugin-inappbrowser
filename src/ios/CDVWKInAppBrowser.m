@@ -408,7 +408,7 @@ static CDVWKInAppBrowser* instance = nil;
 - (void)openInSystem:(NSURL*)url
 {
     // See https://github.com/apache/cordova-plugin-inappbrowser/commit/11ba4c4e7e4f503b7d589339b9b9d6060970ac66?diff=unified
-    // The point the new fork cam from had a regression bug in it.
+    // The commit from which the new fork was made had a regression bug in it - this is the fix.
     if ([[UIApplication sharedApplication] openURL:url] == NO) {
         [[NSNotificationCenter defaultCenter] postNotification:[NSNotification notificationWithName:CDVPluginHandleOpenURLNotification object:url]];
         [[UIApplication sharedApplication] openURL:url];
