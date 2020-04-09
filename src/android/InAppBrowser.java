@@ -75,6 +75,7 @@ import org.apache.cordova.PluginManager;
 import org.apache.cordova.PluginResult;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
@@ -153,6 +154,56 @@ public class InAppBrowser extends CordovaPlugin {
         WindowState.initialised();
 
     }
+
+    private NativeScriptResultHandler nativeScriptResultHandler = new NativeScriptResultHandler() {
+
+        public boolean handle(String scriptResult) {
+            try {
+                JSONArray returnedArray = new JSONArray(scriptResult);
+                JSONObject commandObject = returnedArray.optJSONObject(0);
+
+                if (commandObject == null) {
+                    browserEventSender.bridgeResponse(scriptResult);
+                    return true;
+                }
+
+                String action = commandObject.optString("InAppBrowserAction");
+
+                if (action == null) {
+                    browserEventSender.bridgeResponse(scriptResult);
+                    return true;
+                }
+
+                if (action.equalsIgnoreCase("close")) {
+                    closeDialog();
+                    return true;
+                }
+                if (action.equalsIgnoreCase("hide")) {
+                    // TODO: KPB - reinstate;
+//                    hideGoToBlank = true;
+//                    hideDialog(false);
+                    return true;
+                }
+
+                LOG.d(LOG_TAG, "The poll script return value looked like it shoud be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
+                browserEventSender.bridgeResponse(scriptResult);
+
+                return true;
+            } catch (JSONException ex) {
+                LOG.d(LOG_TAG, "Parse Error = " + ex.getMessage());
+                try {
+                    JSONObject error = new JSONObject();
+                    error.put("message", ex.getMessage());
+                    pluginResultSender.error(error);
+                    return false;
+                } catch (JSONException ex2) {
+                    LOG.d(LOG_TAG, "Should never happen");
+                }
+            }
+
+            return false;
+        }
+    };
 
     /**
      * Executes the request and returns PluginResult.
@@ -918,7 +969,7 @@ public class InAppBrowser extends CordovaPlugin {
                 inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 inAppWebView.setId(Integer.valueOf(6));
                 // File Chooser Implemented ChromeClient
-                inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView) {
+                inAppWebView.setWebChromeClient(new InAppChromeClient(nativeScriptResultHandler, thatWebView) {
                     // For Android 5.0+
                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
                     {

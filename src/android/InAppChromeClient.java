@@ -33,12 +33,17 @@ import android.webkit.GeolocationPermissions.Callback;
 
 public class InAppChromeClient extends WebChromeClient {
 
+    private final String GAP_PROTOCOL = "gap-iab://";
+    private final String GAP_NATIVE_PROTOCOL = "gap-iab-native://";
+
+    private NativeScriptResultHandler nativeScriptResultHandler;
     private CordovaWebView webView;
-    private String LOG_TAG = "InAppChromeClient";
+    private String LOG_TAG = "InAppChromeClient.InAppChromeClient";
     private long MAX_QUOTA = 100 * 1024 * 1024;
 
-    public InAppChromeClient(CordovaWebView webView) {
+    public InAppChromeClient(NativeScriptResultHandler nativeScriptResultHandler, CordovaWebView webView) {
         super();
+        this.nativeScriptResultHandler =nativeScriptResultHandler;
         this.webView = webView;
     }
     /**
@@ -100,39 +105,66 @@ public class InAppChromeClient extends WebChromeClient {
     @Override
     public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
         // See if the prompt string uses the 'gap-iab' protocol. If so, the remainder should be the id of a callback to execute.
-        if (defaultValue != null && defaultValue.startsWith("gap")) {
-            if(defaultValue.startsWith("gap-iab://")) {
-                PluginResult scriptResult;
-                String scriptCallbackId = defaultValue.substring(10);
-                if (scriptCallbackId.matches("^InAppBrowser[0-9]{1,10}$")) {
-                    if(message == null || message.length() == 0) {
-                        scriptResult = new PluginResult(PluginResult.Status.OK, new JSONArray());
-                    } else {
-                        try {
-                            scriptResult = new PluginResult(PluginResult.Status.OK, new JSONArray(message));
-                        } catch(JSONException e) {
-                            scriptResult = new PluginResult(PluginResult.Status.JSON_EXCEPTION, e.getMessage());
-                        }
-                    }
-                    this.webView.sendPluginResult(scriptResult, scriptCallbackId);
-                    result.confirm("");
-                    return true;
-                }
-                else {
-                    // Anything else that doesn't look like InAppBrowser0123456789 should end up here
-                    LOG.w(LOG_TAG, "InAppBrowser callback called with invalid callbackId : "+ scriptCallbackId);
-                    result.cancel();
-                    return true;
-                }
-            }
-            else {
-                // Anything else with a gap: prefix should get this message
-                LOG.w(LOG_TAG, "InAppBrowser does not support Cordova API calls: " + url + " " + defaultValue); 
-                result.cancel();
-                return true;
+
+
+        if (defaultValue == null || !defaultValue.startsWith("gap")) {
+            return false;
+        }
+
+        if(defaultValue.startsWith(GAP_PROTOCOL)) {
+            handleJavascriptExecute(message, defaultValue, result);
+            return true;
+        }
+
+        if(defaultValue.startsWith(GAP_NATIVE_PROTOCOL)) {
+            handleNativeJavascriptResponse(message, defaultValue, result);
+            return true;
+        }
+
+        // Anything else with a gap: prefix should get this message
+        LOG.w(LOG_TAG, "InAppBrowser does not support Cordova API calls: " + url + " " + defaultValue);
+        result.cancel();
+        return true;
+    }
+
+    private void handleNativeJavascriptResponse(String message, String defaultValue, JsPromptResult result){
+        if(message == null || message.length() == 0) {
+            result.confirm("");
+            return;
+        }
+        String actionType = defaultValue.substring(GAP_NATIVE_PROTOCOL.length());
+
+        if(!actionType.equals("poll")) {
+            LOG.w(LOG_TAG, "InAppBrowser calls from native code with action type other than 'poll'" );
+
+        } else if(!nativeScriptResultHandler.handle(message)){
+            LOG.w(LOG_TAG, "The action in the return of the passed 'poll', function could not be parsed or did not have a known action");
+        }
+
+        result.confirm("");
+    }
+
+    private void handleJavascriptExecute(String message, String defaultValue, JsPromptResult result) {
+        PluginResult scriptResult;
+        String scriptCallbackId = defaultValue.substring(GAP_PROTOCOL.length());
+        if (!scriptCallbackId.matches("^InAppBrowser[0-9]{1,10}$")) {
+            // Anything else that doesn't look like InAppBrowser0123456789 should end up here
+            LOG.w(LOG_TAG, "InAppBrowser callback called with invalid callbackId : "+ scriptCallbackId);
+            result.cancel();
+            return;
+        }
+
+        if(message == null || message.length() == 0) {
+            scriptResult = new PluginResult(PluginResult.Status.OK, new JSONArray());
+        } else {
+            try {
+                scriptResult = new PluginResult(PluginResult.Status.OK, new JSONArray(message));
+            } catch(JSONException e) {
+                scriptResult = new PluginResult(PluginResult.Status.JSON_EXCEPTION, e.getMessage());
             }
         }
-        return false;
+        this.webView.sendPluginResult(scriptResult, scriptCallbackId);
+        result.confirm("");
     }
 
 }

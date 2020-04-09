@@ -26,8 +26,15 @@ public class PluginResultSender {
     public void ok() {
         ok(new JSONObject());
     }
+// TODO: KPB - figurew out whether we still need this
+//    public void update(String response, boolean keepCallback, PluginResult.Status status) {
+//        if (callbackContext != null) {
+//            PluginResult pluginResult = new PluginResult(status, response);
+//            pluginResult.setKeepCallback(keepCallback);
+//            this.callbackContext.sendPluginResult(pluginResult);
+//        }
+//    }
 
-    // KPB - In the previous version this used to take a string.
     /**
      * Create a new plugin success result and send it back to JavaScript
      *
