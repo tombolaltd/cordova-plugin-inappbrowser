@@ -24,16 +24,20 @@ public class PluginResultSender {
     }
 
     public void ok() {
-        ok(new JSONObject());
+        ok(new JSONObject()); // TODO: KPB - confirm this, the old code expected a string
     }
-// TODO: KPB - figurew out whether we still need this
-//    public void update(String response, boolean keepCallback, PluginResult.Status status) {
-//        if (callbackContext != null) {
-//            PluginResult pluginResult = new PluginResult(status, response);
-//            pluginResult.setKeepCallback(keepCallback);
-//            this.callbackContext.sendPluginResult(pluginResult);
-//        }
-//    }
+
+    public void ok(String response) {
+        update(response, true, PluginResult.Status.OK);
+    }
+
+    public void update(String response, boolean keepCallback, PluginResult.Status status) {
+        if (callbackContext != null) {
+            PluginResult pluginResult = new PluginResult(status, response);
+            pluginResult.setKeepCallback(keepCallback);
+            this.callbackContext.sendPluginResult(pluginResult);
+        }
+    }
 
     /**
      * Create a new plugin success result and send it back to JavaScript

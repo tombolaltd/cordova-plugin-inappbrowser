@@ -18,6 +18,8 @@ public class WindowState {
         Exited
     }
 
+    private static boolean reopenOnNextPageFinished = false;
+
     private static State currentState = State.Initialising;
 
     private static void setState(State newState) {
@@ -25,7 +27,7 @@ public class WindowState {
         currentState = newState;
     }
 
-    public static void initialised() {
+    public static void ready() {
         setState(State.Ready);
     }
 
@@ -61,18 +63,29 @@ public class WindowState {
         setState(State.Opening);
     }
 
-    public static boolean canHide() {
-        return currentState == State.Displayed || currentState == State.Unhiding || currentState == State.Hiding;
+    public static void reopenOnNextPageFinished() {
+        reopenOnNextPageFinished = true;
     }
 
+    public static void resetReopenOnNextPageFinished() {
+        reopenOnNextPageFinished = false;
+    }
+
+// TODO: KPB - TBC, this is different to iOS
+//    public static boolean canHide() {
+//        return currentState == State.Displayed || currentState == State.Unhiding || currentState == State.Hiding;
+//    }
+
     public static boolean canOpen() {
-        return currentState == State.Ready;
+        // TODO: KPB - TBC, this is different to iOS
+        return currentState == State.Ready || currentState == State.Hidden;
     }
 
     public static boolean isHidden() {
        return currentState == State.Hidden;
     }
 
+    // TODO: KPB -this should be callled
     public static boolean isUnhiding() {
        return currentState == State.Unhiding;
     }
@@ -81,7 +94,11 @@ public class WindowState {
         return currentState == State.Hiding || currentState == State.HidingToBlank;
     }
 
-    public static boolean ShouldHideBlank() {
+    public static boolean shouldHideBlank() {
         return currentState == State.HidingToBlank;
+    }
+
+    public static boolean shouldReopenOnNextPageFinished() {
+        return reopenOnNextPageFinished;
     }
 }
