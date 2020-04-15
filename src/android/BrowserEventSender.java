@@ -4,7 +4,6 @@ import android.util.Log;
 import org.apache.cordova.LOG;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONArray;
 
 public class BrowserEventSender {
     protected static final String LOG_TAG = "InAppBrowser.BrowserEventSender";

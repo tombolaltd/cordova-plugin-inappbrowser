@@ -1,10 +1,8 @@
 package org.apache.cordova.inappbrowser;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Build;
 import android.webkit.WebView;
-import org.json.JSONArray;
 
 public final class ResourceInjector {
 
