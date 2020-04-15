@@ -19,55 +19,23 @@
 package org.apache.cordova.inappbrowser;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.provider.Browser;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
-import android.os.Bundle;
-import android.text.InputType;
+import android.os.Parcelable;
 import android.util.Log;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.KeyEvent;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.view.WindowManager.LayoutParams;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
-import android.webkit.CookieManager;
-import android.webkit.CookieSyncManager;
-import android.webkit.HttpAuthHandler;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 
 import org.apache.cordova.CallbackContext;
-import org.apache.cordova.Config;
+
 import org.apache.cordova.CordovaArgs;
-import org.apache.cordova.CordovaHttpAuthHandler;
 import org.apache.cordova.CordovaPlugin;
-import org.apache.cordova.CordovaWebView;
-import org.apache.cordova.LOG;
-import org.apache.cordova.PluginManager;
 import org.apache.cordova.PluginResult;
 import org.json.JSONException;
-import org.json.JSONObject;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.StringTokenizer;
+import java.util.ArrayList;
+import java.util.List;
 
 @SuppressLint("SetJavaScriptEnabled")
 public class SystemBrowser extends CordovaPlugin {
@@ -92,13 +60,57 @@ public class SystemBrowser extends CordovaPlugin {
                 intent.setData(uri);
             }
             intent.putExtra(Browser.EXTRA_APPLICATION_ID, cordova.getActivity().getPackageName());
-            this.cordova.getActivity().startActivity(intent);
+            // CB-10795: Avoid circular loops by preventing it from opening in the current app
+            this.openExternalExcludeCurrentApp(intent);
             return "";
         } catch (android.content.ActivityNotFoundException e) {
             Log.d(LOG_TAG, "InAppBrowser: Error loading url "+url+":"+ e.toString());
             return e.toString();
         }
     }
+
+    /**
+     * Opens the intent, providing a chooser that excludes the current app to avoid
+     * circular loops.
+     */
+    private void openExternalExcludeCurrentApp(Intent intent) {
+        String currentPackage = cordova.getActivity().getPackageName();
+        boolean hasCurrentPackage = false;
+
+        PackageManager pm = cordova.getActivity().getPackageManager();
+        List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
+        ArrayList<Intent> targetIntents = new ArrayList<Intent>();
+
+        for (ResolveInfo ri : activities) {
+            if (!currentPackage.equals(ri.activityInfo.packageName)) {
+                Intent targetIntent = (Intent)intent.clone();
+                targetIntent.setPackage(ri.activityInfo.packageName);
+                targetIntents.add(targetIntent);
+            }
+            else {
+                hasCurrentPackage = true;
+            }
+        }
+
+        // If the current app package isn't a target for this URL, then use
+        // the normal launch behavior
+        if (hasCurrentPackage == false || targetIntents.size() == 0) {
+            this.cordova.getActivity().startActivity(intent);
+        }
+        // If there's only one possible intent, launch it directly
+        else if (targetIntents.size() == 1) {
+            this.cordova.getActivity().startActivity(targetIntents.get(0));
+        }
+        // Otherwise, show a custom chooser without the current app listed
+        else if (targetIntents.size() > 0) {
+            Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size()-1), null);
+            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[] {}));
+            this.cordova.getActivity().startActivity(chooser);
+    }
+        }
+
+
+
 
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext) throws JSONException {
         if(!action.equals("open")){

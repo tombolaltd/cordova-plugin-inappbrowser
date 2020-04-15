@@ -286,10 +286,10 @@ public class InAppBrowser extends CordovaPlugin {
         }
         if (action.equals("injectStyleFile")) {
             ResourceInjector.injectStyleFile(inAppWebView,
-                cordova.getActivity(),
-                args.getString(0),
-                args.getBoolean(1),
-                callbackContext.getCallbackId());
+                    cordova.getActivity(),
+                    args.getString(0),
+                    args.getBoolean(1),
+                    callbackContext.getCallbackId());
             return true;
         }
         if (action.equals("show")) {
@@ -306,7 +306,14 @@ public class InAppBrowser extends CordovaPlugin {
                 WindowState.hide();
             }
 
-            hideDialog(releaseResources);
+            this.cordova.getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (dialog != null) {
+                        hideDialog(releaseResources);
+                    }
+                }
+            });
 
             pluginResultSender.ok();
             return true;
@@ -415,36 +422,6 @@ public class InAppBrowser extends CordovaPlugin {
         closeDialog();
     }
 
-    // TODO: KPB - this will be need to be removed.
-    private void injectDeferredObject(String source, String jsWrapper) {
-        if (inAppWebView!=null) {
-            String scriptToInject;
-            if (jsWrapper != null) {
-                org.json.JSONArray jsonEsc = new org.json.JSONArray();
-                jsonEsc.put(source);
-                String jsonRepr = jsonEsc.toString();
-                String jsonSourceString = jsonRepr.substring(1, jsonRepr.length()-1);
-                scriptToInject = String.format(jsWrapper, jsonSourceString);
-            } else {
-                scriptToInject = source;
-            }
-            final String finalScriptToInject = scriptToInject;
-            this.cordova.getActivity().runOnUiThread(new Runnable() {
-                @SuppressLint("NewApi")
-                @Override
-                public void run() {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-                        // This action will have the side-effect of blurring the currently focused element
-                        inAppWebView.loadUrl("javascript:" + finalScriptToInject);
-                    } else {
-                        inAppWebView.evaluateJavascript(finalScriptToInject, null);
-                    }
-                }
-            });
-        } else {
-            LOG.d(LOG_TAG, "Can't inject code into the system browser");
-        }
-    }
 
     /**
      * Put the list of features into a hash map
@@ -494,8 +471,8 @@ public class InAppBrowser extends CordovaPlugin {
                 if (WindowState.shouldHideBlank()) {
                     inAppWebView.loadUrl(BLANK_PAGE_URL);
                 }
-                browserEventSender.hidden();
                 WindowState.hidden();
+                browserEventSender.hidden();
             }
         });
     }
@@ -516,9 +493,6 @@ public class InAppBrowser extends CordovaPlugin {
             return;
         }
 
-        if (!UrlSecurityValidation.shouldAllowRequest(webView, url)) {
-            return;
-        }
         WindowState.unhide();
 
         // addBridgeInterface(); // TODO: KPB - re-add
@@ -545,7 +519,7 @@ public class InAppBrowser extends CordovaPlugin {
 
     private void updateDialog(final String url, final boolean show) {
         if (null == url || url.trim().isEmpty()) {
-            addBridgeInterface(); // TODO: KPB - re-add
+            addBridgeInterface();
 
             if (show) {
                 showDialogue();
@@ -554,33 +528,31 @@ public class InAppBrowser extends CordovaPlugin {
             return;
         }
 
-        if (!UrlSecurityValidation.shouldAllowRequest(webView, url)) {
-            return;
-        }
-
         addBridgeInterface();
 
-        this.cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (null == inAppWebView || null == inAppWebView.getUrl()) {
-                    return;
-                }
+        this.cordova.getActivity().runOnUiThread(() -> {
+            if (null == inAppWebView || null == inAppWebView.getUrl()) {
+                return;
+            }
 
-                if (inAppWebView.getUrl().equals(url)) {
-                    if (show) {
-                        showDialogue();
-                    } else {
-                        browserEventSender.loadStop(url);
-                        WindowState.hidden(); // TODO: KPB - confirm this, it may also be shown?
-                    }
+            if (inAppWebView.getUrl().equals(url)) {
+                if (show) {
+                    showDialogue();
                 } else {
-                    if (show) {
-                        WindowState.reopenOnNextPageFinished();
+                    browserEventSender.loadStop(url);
+                    // TODO: KPB - check this
+                    if(WindowState.isHiding()) {
+                        WindowState.hidden();
+                    } else {
+                        WindowState.ready();
                     }
-
-                    navigate(url);
                 }
+            } else {
+                if (show) {
+                    WindowState.reopenOnNextPageFinished();
+                }
+
+                navigate(url);
             }
         });
     }
@@ -592,88 +564,16 @@ public class InAppBrowser extends CordovaPlugin {
     * @return
     */
     private void showDialogue() {
-        pluginResultSender.ok();
-        this.cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (dialog != null) {
-                    dialog.show();
-                }
-                if(WindowState.isHidden()) {
-                    browserEventSender.unhidden();
-                    WindowState.displayed();
-                }
+        this.cordova.getActivity().runOnUiThread(() -> {
+            if (dialog != null) {
+                dialog.show();
+            }
+            if(WindowState.isHidden()) {
+                browserEventSender.unhidden();
+                WindowState.displayed();
             }
         });
-    }
-
-    /**
-     * Display a new browser with the specified URL.
-     *
-     * @param url the url to load.
-     * @return "" if ok, or error message.
-     */
-    public String openExternal(String url) {
-        try {
-            Intent intent = null;
-            intent = new Intent(Intent.ACTION_VIEW);
-            // Omitting the MIME type for file: URLs causes "No Activity found to handle Intent".
-            // Adding the MIME type to http: URLs causes them to not be handled by the downloader.
-            Uri uri = Uri.parse(url);
-            if ("file".equals(uri.getScheme())) {
-                intent.setDataAndType(uri, webView.getResourceApi().getMimeType(uri));
-            } else {
-                intent.setData(uri);
-            }
-            intent.putExtra(Browser.EXTRA_APPLICATION_ID, cordova.getActivity().getPackageName());
-            // CB-10795: Avoid circular loops by preventing it from opening in the current app
-            this.openExternalExcludeCurrentApp(intent);
-            return "";
-            // not catching FileUriExposedException explicitly because buildtools<24 doesn't know about it
-        } catch (java.lang.RuntimeException e) {
-            LOG.d(LOG_TAG, "InAppBrowser: Error loading url "+url+":"+ e.toString());
-            return e.toString();
-        }
-    }
-
-    /**
-     * Opens the intent, providing a chooser that excludes the current app to avoid
-     * circular loops.
-     */
-    private void openExternalExcludeCurrentApp(Intent intent) {
-        String currentPackage = cordova.getActivity().getPackageName();
-        boolean hasCurrentPackage = false;
-
-        PackageManager pm = cordova.getActivity().getPackageManager();
-        List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
-        ArrayList<Intent> targetIntents = new ArrayList<Intent>();
-
-        for (ResolveInfo ri : activities) {
-            if (!currentPackage.equals(ri.activityInfo.packageName)) {
-                Intent targetIntent = (Intent)intent.clone();
-                targetIntent.setPackage(ri.activityInfo.packageName);
-                targetIntents.add(targetIntent);
-            }
-            else {
-                hasCurrentPackage = true;
-            }
-        }
-
-        // If the current app package isn't a target for this URL, then use
-        // the normal launch behavior
-        if (hasCurrentPackage == false || targetIntents.size() == 0) {
-            this.cordova.getActivity().startActivity(intent);
-        }
-        // If there's only one possible intent, launch it directly
-        else if (targetIntents.size() == 1) {
-            this.cordova.getActivity().startActivity(targetIntents.get(0));
-        }
-        // Otherwise, show a custom chooser without the current app listed
-        else if (targetIntents.size() > 0) {
-            Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size()-1), null);
-            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[] {}));
-            this.cordova.getActivity().startActivity(chooser);
-        }
+        pluginResultSender.ok();
     }
 
     /**
@@ -1230,6 +1130,38 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     /**
+     * Checks to see if the custom scheme supplied is whitelisted
+     */
+    private boolean isWhitelistedCustomScheme(String url) {
+
+        if (!url.matches("^[A-Za-z0-9+.-]*://.*?$")) {
+            return false;
+        }
+
+        if (allowedSchemes == null) {
+            String allowed = preferences.getString("AllowedSchemes", null);
+            if(allowed == null) {
+                return false;
+
+            }
+            allowedSchemes = allowed.split(",");
+        }
+
+        if (allowedSchemes.length == 0) {
+            return false;
+        }
+
+        for (String scheme : allowedSchemes) {
+            if (url.startsWith(scheme)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
      * Receive File Data from File Chooser
      *
      * @param requestCode the requested code from chromeclient
@@ -1266,14 +1198,14 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     private void addBridgeInterface() {
-        cordova.getActivity().runOnUiThread(new Runnable(){
-            @Override
-            public void run(){
+//        cordova.getActivity().runOnUiThread(new Runnable(){
+//            @Override
+//            public void run(){
                 inAppWebView.addJavascriptInterface(new JavaScriptBridgeInterface(cordova.getActivity(),
                                 nativeScriptResultHandler),
                         JavaScriptBridgeInterface.JAVASCRIPT_OBJECT_NAME);
-            }
-        });
+//            }
+//        });
     }
 
     /**
@@ -1337,7 +1269,6 @@ public class InAppBrowser extends CordovaPlugin {
          * @param method
          */
         public boolean shouldOverrideUrlLoading(String url, String method) {
-            boolean override = false;
             boolean useBeforeload = false;
             String errorMessage = null;
 
@@ -1368,43 +1299,30 @@ public class InAppBrowser extends CordovaPlugin {
 
             if (url.startsWith(WebView.SCHEME_TEL)) {
                 return IntentHandler.dial(url, cordova.getActivity());
-            } else if (url.startsWith("geo:") || url.startsWith(WebView.SCHEME_MAILTO) || url.startsWith("market:") || url.startsWith("intent:")) {
+            }
+            if (url.startsWith("geo:") || url.startsWith(WebView.SCHEME_MAILTO) || url.startsWith("market:") || url.startsWith("intent:")) {
                 return IntentHandler.openDefault(url, cordova.getActivity());
             }
             // If sms:5551212?body=This is the message
-            else if (url.startsWith("sms:")) {
+            if (url.startsWith("sms:")) {
                 return IntentHandler.sms(url, cordova.getActivity());
-            }
-            // KPB - this is substantially different from the older version
-            // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
-            else if (!url.startsWith("http:") && !url.startsWith("https:") && url.matches("^[A-Za-z0-9+.-]*://.*?$")) {
-                if (allowedSchemes == null) {
-                    String allowed = preferences.getString("AllowedSchemes", null);
-                    if(allowed != null) {
-                        allowedSchemes = allowed.split(",");
-                    }
-                }
-                if (allowedSchemes != null) {
-                    for (String scheme : allowedSchemes) {
-                        if (url.startsWith(scheme)) {
-                            try {
-                                JSONObject obj = new JSONObject();
-                                obj.put("type", "customscheme");
-                                obj.put("url", url);
-                                pluginResultSender.ok(obj);
-                                override = true;
-                            } catch (JSONException ex) {
-                                LOG.e(LOG_TAG, "Custom Scheme URI passed in has caused a JSON error.");
-                            }
-                        }
-                    }
-                }
             }
 
             if (useBeforeload) {
                 this.waitForBeforeload = true;
             }
-            return override;
+
+            if (url.startsWith("http:") || url.startsWith("https:")){
+                return false;
+            }
+
+            // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+            if (isWhitelistedCustomScheme(url)) {
+                browserEventSender.customScheme(url);
+                return true;
+            }
+
+            return false;
         }
 
         private boolean sendBeforeLoad(String url, String method) {
@@ -1489,7 +1407,7 @@ public class InAppBrowser extends CordovaPlugin {
 
             // Set the namespace for postMessage()
             if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN_MR1) {
-                injectDeferredObject("window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null);
+                ResourceInjector.inject(inAppWebView, cordova.getActivity(),"window.webkit={messageHandlers:{cordova_iab:cordova_iab}}", null );
             }
 
             // CB-10395 InAppBrowser's WebView not storing cookies reliable to local device storage
@@ -1526,9 +1444,14 @@ public class InAppBrowser extends CordovaPlugin {
 
             if(!WindowState.shouldHideBlank()) {
                 browserEventSender.loadStop(url);
-                WindowState.displayed();
             }
-            WindowState.ready();
+
+            if(WindowState.isHiding()) {
+                WindowState.hidden();
+            }
+            if(!WindowState.isHidden()) {
+                WindowState.ready();
+            }
         }
 
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {

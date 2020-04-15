@@ -32,24 +32,20 @@ public final class ResourceInjector {
             String jsonRepr = jsonEsc.toString();
             String jsonSourceString = jsonRepr.substring(1, jsonRepr.length() - 1);
             scriptToInject = String.format(jsWrapper, jsonSourceString);
-
         } else {
             scriptToInject = source;
         }
         final String finalScriptToInject = scriptToInject;
-        parentActivity.runOnUiThread(new Runnable() {
-            @SuppressLint("NewApi")
-            @Override
-            public void run() {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-                    // This action will have the side-effect of blurring the currently focused element
-                    webView.loadUrl("javascript:" + finalScriptToInject);
-                } else {
-                    webView.evaluateJavascript(finalScriptToInject, null);
-                }
+        parentActivity.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+                // This action will have the side-effect of blurring the currently focused element
+                webView.loadUrl("javascript:" + finalScriptToInject);
+            } else {
+                webView.evaluateJavascript(finalScriptToInject, null);
             }
         });
     }
+
     public static void injectStyleFile(WebView webView, Activity parentActivity, String sourceFile, boolean hasCallBack, String callbackContextId) {
         String jsWrapper;
         if (hasCallBack) {
@@ -73,9 +69,10 @@ public final class ResourceInjector {
     public static void injectScriptFile(WebView webView, Activity parentActivity, String sourceFile, boolean hasCallBack, String callbackContextId) {
         String jsWrapper;
         if (hasCallBack) {
-            jsWrapper = String.format("(function(d) { var c = d.createElement('script'); c.src = %%s; c.onload = function() { prompt('', 'gap-iab://%s'); }; d.body.appendChild(c); })(document)", callbackContextId);
-        } else {
             jsWrapper = "(function(d) { var c = d.createElement('script'); c.src = %s; d.body.appendChild(c); })(document)";
+
+        } else {
+            jsWrapper = String.format("(function(d) { var c = d.createElement('script'); c.src = %%s; c.onload = function() { prompt('', 'gap-iab://%s'); }; d.body.appendChild(c); })(document)", callbackContextId);
         }
         injectDeferredObject(webView, parentActivity, sourceFile, jsWrapper);
     }
@@ -83,5 +80,9 @@ public final class ResourceInjector {
     public static void injectScriptCode(WebView webView, Activity parentActivity, String jsCode, boolean hasCallBack, String callbackContextId) {
         String jsWrapper = hasCallBack ? String.format("(function(){prompt(JSON.stringify([eval(%%s)]), 'gap-iab://%s')})()", callbackContextId) : null;
         injectDeferredObject(webView, parentActivity, jsCode, jsWrapper);
+    }
+
+    public static void inject(WebView webView, Activity parentActivity, String jsCode, String wrapper) {
+        injectDeferredObject(webView, parentActivity, jsCode, wrapper);
     }
 }
