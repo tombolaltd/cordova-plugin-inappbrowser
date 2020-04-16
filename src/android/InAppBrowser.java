@@ -478,14 +478,14 @@ public class InAppBrowser extends CordovaPlugin {
      */
     private void unHideDialog(final String url) {
         if (url == null || url.equals("") || url.equals(NULL)) {
-            // addBridgeInterface(); // TODO: KPB - re-add
+            addBridgeInterface();
             showDialogue();
             return;
         }
 
         WindowState.unhide();
 
-        // addBridgeInterface(); // TODO: KPB - re-add
+        addBridgeInterface();
 
         this.cordova.getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -530,7 +530,6 @@ public class InAppBrowser extends CordovaPlugin {
                     showDialogue();
                 } else {
                     browserEventSender.loadStop(url);
-                    // TODO: KPB - check this
                     if(WindowState.isHiding()) {
                         WindowState.hidden();
                     } else {
@@ -1188,14 +1187,14 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     private void addBridgeInterface() {
-//        cordova.getActivity().runOnUiThread(new Runnable(){
-//            @Override
-//            public void run(){
+        cordova.getActivity().runOnUiThread(new Runnable(){
+            @Override
+            public void run(){
                 inAppWebView.addJavascriptInterface(new JavaScriptBridgeInterface(cordova.getActivity(),
                                 nativeScriptResultHandler),
                         JavaScriptBridgeInterface.JAVASCRIPT_OBJECT_NAME);
-//            }
-//        });
+            }
+        });
     }
 
     /**
@@ -1434,14 +1433,13 @@ public class InAppBrowser extends CordovaPlugin {
 
             if(!WindowState.shouldHideBlank()) {
                 browserEventSender.loadStop(url);
+                if(WindowState.isHidden()){
+                    browserEventSender.unhidden();
+                    WindowState.ready();
+                }
             }
 
-            if(WindowState.isHiding()) {
-                WindowState.hidden();
-            }
-            if(!WindowState.isHidden()) {
-                WindowState.ready();
-            }
+            WindowState.ready();
         }
 
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
