@@ -309,7 +309,6 @@ public class InAppBrowser extends CordovaPlugin {
             return true;
         }
 
-        // TODO: KPB - these are the stubs.
         if (action.equals("unHide")) {
             if(!WindowState.canOpen()){
                 return true;

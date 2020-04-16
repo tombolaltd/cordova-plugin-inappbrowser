@@ -22,7 +22,7 @@ public class PluginResultSender {
     }
 
     public void ok() {
-        ok(new JSONObject()); // TODO: KPB - confirm this, the old code expected a string
+        ok(new JSONObject());
     }
 
     public void ok(String response) {

@@ -8,7 +8,6 @@ import org.json.JSONObject;
 public class BrowserEventSender {
     protected static final String LOG_TAG = "InAppBrowser.BrowserEventSender";
 
-    // TODO: KPB - not all these are implemented yet, copied from our previous fork
     private static final String LOAD_START_EVENT = "loadstart";
     private static final String LOAD_STOP_EVENT = "loadstop";
     private static final String LOAD_ERROR_EVENT = "loaderror";
@@ -78,8 +77,6 @@ public class BrowserEventSender {
         }
     }
 
-    // TODO: KPB - the following are ported from our fork ready for use, but not used
-    // in the current branch.
     public void hidden(){
         try {
             JSONObject response = CreateResponse(HIDDEN_EVENT);

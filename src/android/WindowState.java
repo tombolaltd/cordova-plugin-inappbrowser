@@ -71,13 +71,7 @@ public class WindowState {
         reopenOnNextPageFinished = false;
     }
 
-// TODO: KPB - TBC, this is different to iOS
-//    public static boolean canHide() {
-//        return currentState == State.Displayed || currentState == State.Unhiding || currentState == State.Hiding;
-//    }
-
     public static boolean canOpen() {
-        // TODO: KPB - TBC, this is different to iOS
         return currentState == State.Ready || currentState == State.Hidden;
     }
 
@@ -85,7 +79,6 @@ public class WindowState {
        return currentState == State.Hidden;
     }
 
-    // TODO: KPB -this should be callled
     public static boolean isUnhiding() {
        return currentState == State.Unhiding;
     }
