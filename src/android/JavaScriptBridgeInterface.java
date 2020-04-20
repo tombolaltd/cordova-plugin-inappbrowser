@@ -1,10 +1,7 @@
 package org.apache.cordova.inappbrowser;
 
 import android.app.Activity;
-import android.content.Context;
-import android.util.Log;
 import android.webkit.JavascriptInterface;
-import org.apache.cordova.LOG;
 
 public class JavaScriptBridgeInterface {
     protected static final String LOG_TAG = "InAppBrowser.JavaScriptBridgeInterface";

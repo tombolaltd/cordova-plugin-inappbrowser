@@ -1,7 +1,5 @@
 package org.apache.cordova.inappbrowser;
 
-import android.util.Log;
-import org.apache.cordova.LOG;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult;
 
@@ -27,7 +25,18 @@ public class PluginResultSender {
         ok(new JSONObject());
     }
 
-    // KPB - In the previous version this used to take a string.
+    public void ok(String response) {
+        update(response, true, PluginResult.Status.OK);
+    }
+
+    public void update(String response, boolean keepCallback, PluginResult.Status status) {
+        if (callbackContext != null) {
+            PluginResult pluginResult = new PluginResult(status, response);
+            pluginResult.setKeepCallback(keepCallback);
+            this.callbackContext.sendPluginResult(pluginResult);
+        }
+    }
+
     /**
      * Create a new plugin success result and send it back to JavaScript
      *
