@@ -19,7 +19,7 @@
  *
 */
 
-(function() {
+(function () {
     // special patch to correctly work on Ripple emulator (CB-9760)
     if (window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
         module.exports = window.open.bind(window); // fallback to default window.open behaviour
@@ -31,54 +31,46 @@
     var modulemapper = require('cordova/modulemapper');
     var urlutil = require('cordova/urlutil');
 
-    function InAppBrowser(strUrl, strWindowName, strWindowFeatures, callbacks) {
-        var me = this,
-            hidden = false,
-            backChannels = { };
-
-        function eventCallback (event) {
-                    if (event && (event.type in backChannels)) {
-                        backChannels[event.type].fire(event);
-                    }
-                    if (event && (event.type in me.channels)) {
-                        me.channels[event.type].fire(event);
-                    }
-        }
+    function InAppBrowser (strUrl, strWindowName, strWindowFeatures, callbacks) {
+        var me = this;
+        var hidden = false;
+        var backChannels = { };
+        me.channels = {
+            'beforeload': channel.create('beforeload'),
+            'loadstart': channel.create('loadstart'),
+            'loadstop': channel.create('loadstop'),
+            'loaderror': channel.create('loaderror'),
+            'hidden' : channel.create('hidden'),
+            'unhidden' : channel.create('unhidden'),
+            'bridgeresponse' : channel.create('bridgeresponse'),
+            'exit': channel.create('exit'),
+            'customscheme': channel.create('customscheme'),
+            'message': channel.create('message')
+        };
 
         me.isHidden = function(){
             return hidden;
         }
 
-        me.channels = {
-            'loadstart' : channel.create('loadstart'),
-            'loadstop' : channel.create('loadstop'),
-            'loaderror' : channel.create('loaderror'),
-            'hidden' : channel.create('hidden'),
-            'unhidden' : channel.create('unhidden'),
-            'bridgeresponse' : channel.create('bridgeresponse'),
-            'exit' : channel.create('exit'),
-            'customscheme' : channel.create('customscheme')
-        }
-
         me.close = function (eventname) {
-            exec(null, null, "InAppBrowser", "close", []);
+            exec(null, null, 'InAppBrowser', 'close', []);
             hidden = false;
-        }
+        };
 
         me.show = function (eventname) {
-            exec(null, null, "InAppBrowser", "show", []);
+            exec(null, null, 'InAppBrowser', 'show', []);
             hidden = false;
-        }
+        };
 
-        me.hide = function (releaseResources, boolGoToBlank, eventname) {
-            exec(null,null,"InAppBrowser", "hide", [releaseResources, boolGoToBlank]);
+        me.hide = function (eventname) {
+            exec(null, null, 'InAppBrowser', 'hide', []);
             hidden = true;
-        }
+        };
 
         me.unHide = function (strUrl, eventname) {
             exec(null,null,"InAppBrowser", "unHide", [strUrl]);
             hidden = false;
-        }
+        };
 
         me.update = function (strUrl, show) {
             exec(null,null,"InAppBrowser", "update", [strUrl, show]);
@@ -88,48 +80,59 @@
             }
         };
 
-        me.bridge = function (objectName, bridgeFunction) {
-            exec(null, null, "InAppBrowser", "bridge", [objectName, bridgeFunction]);
-        }
-
-        me.addEventListener = function (eventname,f) {
+        me.addEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);
             }
-        }
+        };
 
         me.removeEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].unsubscribe(f);
             }
-        }
+        };
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectScriptCode", [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb]);
             } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectScriptFile", [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptFile', [injectDetails.file, !!cb]);
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        }
+        };
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectStyleCode", [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleCode', [injectDetails.code, !!cb]);
             } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectStyleFile", [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleFile', [injectDetails.file, !!cb]);
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
+        };
+
+        function eventHandler (event) {
+            if (event && (event.type in me.channels)) {
+                if (event.type === 'beforeload') {
+                    me.channels[event.type].fire(event, loadAfterBeforeload);
+                } else {
+                    me.channels[event.type].fire(event);
+                }
+            }
+        };
+
+        function  loadAfterBeforeload (strUrl) {
+            strUrl = urlutil.makeAbsolute(strUrl);
+            exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
         }
 
+        for (var callbackName in callbacks) {
+            me.addEventListener(callbackName, callbacks[callbackName]);
+        }
+ 
+        exec(eventHandler, eventHandler, "InAppBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
 
-       for (var callbackName in callbacks) {
-           me.addEventListener(callbackName, callbacks[callbackName]);
-       }
-
-       exec(eventCallback, eventCallback, "InAppBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
     }
 
     module.exports = function (strUrl, strWindowName, strWindowFeatures, callbacks) {
@@ -140,7 +143,8 @@
         }
 
         strUrl = urlutil.makeAbsolute(strUrl);
-        strWindowFeatures = strWindowFeatures || "";
+
+        strWindowFeatures = strWindowFeatures || '';
 
         if(strWindowName === '_system') {
             // This is now separate as more-or-less fire and forget system browser was re-utilising

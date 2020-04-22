@@ -19,7 +19,7 @@
  *
 */
 
-(function() {
+(function () {
     // special patch to correctly work on Ripple emulator (CB-9760)
     if (window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
         module.exports = window.open.bind(window); // fallback to default window.open behaviour
@@ -31,109 +31,56 @@
     var modulemapper = require('cordova/modulemapper');
     var urlutil = require('cordova/urlutil');
 
-    var InAppBrowser = function(url, windowName, windowFeatures, callbacks) {
-        var me = this,
-            hidden = false,
-            backChannels = {
-                preventexitonhide : channel.create('preventexitonhide')
-            },
-            lastUrl = url,
-            lastWindowName = windowName,
-            lastWindowFeatures = windowFeatures;
-
-        function releaseListeners(){
-            for(var eventname in me.channels)
-            {
-                for(var listenerObserverId in me.channels[eventname].handlers)
-                {
-                    me.removeEventListener(eventname, me.channels[eventname].handlers[listenerObserverId]);
-                }
-            }
-        }
-
-        function eventCallback (event) {
-            if (event && (event.type in backChannels)) {
-                backChannels[event.type].fire(event);
-            }
-            if (event && (event.type in me.channels)) {
-                me.channels[event.type].fire(event);
-            }
-        }
-
-        backChannels['preventexitonhide'].subscribe(function(){
-                var exitHandlersToRestore = {},
-                exitChannel = me.channels['exit'],
-                exitRestoreCallBack = function(){
-                    // This cleans up the current handler
-                    if(exitRestoreCallBack.observer_guid){
-                        me.removeEventListener('exit', exitChannel.handlers[exitRestoreCallBack.observer_guid]);
-                    }
-
-                    for(var exitCallbackObserverId in exitHandlersToRestore) {
-                        var eventHandler = exitHandlersToRestore[exitCallbackObserverId];
-                        me.addEventListener('exit', eventHandler);
-                    }
-                };
-
-                // Need to set this here as it is possible to hide via native code "directly" by calling hide via the
-                // command infrastructure and not the hide method
-                hidden = true;
-                if(exitChannel.numHandlers >0){
-                    for(var exitCallbackObserverId in exitChannel.handlers) {
-                        var eventHandler = exitChannel.handlers[exitCallbackObserverId];
-                        exitHandlersToRestore[exitCallbackObserverId] = exitChannel.handlers[exitCallbackObserverId];
-                        me.removeEventListener('exit', eventHandler);
-                    }
-                    me.addEventListener('exit', exitRestoreCallBack);
-                }
-        });
+    function InAppBrowser (url, windowName, windowFeatures, callbacks) {
+        var me = this;
+        var hidden = false;
+        var backChannels = {
+            preventexitonhide : channel.create('preventexitonhide')
+        };
+        var lastUrl = url;
+        var lastWindowName = windowName;
+        var lastWindowFeatures = windowFeatures;
 
         me.channels = {
-            'loadstart' : channel.create('loadstart'),
-            'loadstop' : channel.create('loadstop'),
-            'loaderror' : channel.create('loaderror'),
+            'beforeload': channel.create('beforeload'),
+            'loadstart': channel.create('loadstart'),
+            'loadstop': channel.create('loadstop'),
+            'loaderror': channel.create('loaderror'),
             'hidden' : channel.create('hidden'),
             'unhidden' : channel.create('unhidden'),
             'bridgeresponse' : channel.create('bridgeresponse'),
-            'exit' : channel.create('exit'),
-            'customscheme' : channel.create('customscheme')
+            'exit': channel.create('exit'),
+            'customscheme': channel.create('customscheme'),
+            'message': channel.create('message')
         };
 
-        me.isHidden = function(){
-            return hidden;
-        }
-
-        me.close = function(eventname) {
-            exec(null, null, "InAppBrowser", "close", []);
-            if(hidden){
-                me.channels['exit'].fire();
+        me.close = function (eventname) {
+            exec(null, null, 'InAppBrowser', 'close', []);
+            if (hidden) {
+                eventHandler('exit');
             }
             hidden = false;
-        }
+        };
 
-        me.show = function(eventname) {
-            exec(null, null, "InAppBrowser", "show", []);
+        me.show = function (eventname) {
+            exec(null, null, 'InAppBrowser', 'show', []);
             hidden = false;
-        }
+        };
 
-        me.hide = function(releaseResources, blankPage){
-
-            if(releaseResources){
+        me.hide = function (releaseResources, _blankPage) {
+            if (releaseResources) {
                 releaseListeners();
             }
-
-            // Release resources has no effect in native iOS - the IAB
-            // Is fully closed & the JS pretends it isn't
-            exec(null,null,"InAppBrowser", "hide", [releaseResources]);
+            exec(null, null, 'InAppBrowser', 'hide', [releaseResources]);
             hidden = true;
-        }
+        };
 
         me.unHide = function(strUrl, eventname){
             if(strUrl){
                 lastUrl = urlutil.makeAbsolute(strUrl) || lastUrl || 'about:blank';
             }
 
-            exec(eventCallback, eventCallback, "InAppBrowser", "unHide", [lastUrl, lastWindowName, lastWindowFeatures]);
+            exec(eventHandler, eventHandler, "InAppBrowser", "unHide", [lastUrl, lastWindowName, lastWindowFeatures]);
             hidden = false;
         }
 
@@ -142,53 +89,123 @@
                 lastUrl = urlutil.makeAbsolute(strUrl) || lastUrl || 'about:blank';
             }
 
-            exec(eventCallback, eventCallback, "InAppBrowser", "update", [lastUrl, lastWindowName, lastWindowFeatures, show]);
+            exec(eventHandler, eventHandler, "InAppBrowser", "update", [lastUrl, lastWindowName, lastWindowFeatures, show]);
 
             if (show) {
                 hidden = false;
             }
         };
 
-        me.addEventListener = function (eventname,f) {
+        me.addEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);
             }
-        }
+        };
 
         me.removeEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].unsubscribe(f);
             }
-        }
+        };
 
         me.executeScript = function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectScriptCode", [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb]);
             } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectScriptFile", [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectScriptFile', [injectDetails.file, !!cb]);
             } else {
                 throw new Error('executeScript requires exactly one of code or file to be specified');
             }
-        }
+        };
 
         me.insertCSS = function (injectDetails, cb) {
             if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectStyleCode", [injectDetails.code, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleCode', [injectDetails.code, !!cb]);
             } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectStyleFile", [injectDetails.file, !!cb]);
+                exec(cb, null, 'InAppBrowser', 'injectStyleFile', [injectDetails.file, !!cb]);
             } else {
                 throw new Error('insertCSS requires exactly one of code or file to be specified');
             }
+        };
+
+        me.isHidden = function(){
+            return hidden;
         }
+
+        function eventHandler (event) {
+            if (event && (event.type in backChannels)) {
+                fireEvent(backChannels, event);
+            }
+            if (event && (event.type in me.channels)) {
+                fireEvent(me.channels, event);
+            }
+        };
+
+        function fireEvent(channels, event) {
+            if(!channels){
+                return;
+            }
+            if (!channels[event.type]) {
+                return;
+            }
+
+            if (event.type === 'beforeload') {
+                channels[event.type].fire(event, loadAfterBeforeload);
+            }
+
+            channels[event.type].fire(event);
+        }
+
+        function  loadAfterBeforeload (strUrl) {
+            strUrl = urlutil.makeAbsolute(strUrl);
+            exec(null, null, 'InAppBrowser', 'loadAfterBeforeload', [strUrl]);
+        }
+
+        function releaseListeners() {
+            for (var eventname in me.channels) {
+                for(var listenerObserverId in me.channels[eventname].handlers) {
+                    me.removeEventListener(eventname, me.channels[eventname].handlers[listenerObserverId]);
+                }
+            }
+        }
+
+        backChannels['preventexitonhide'].subscribe(function(){
+            var exitHandlersToRestore = {},
+            exitChannel = me.channels['exit'],
+            exitRestoreCallBack = function(){
+                // This cleans up the current handler
+                if (exitRestoreCallBack.observer_guid) {
+                    me.removeEventListener('exit', exitChannel.handlers[exitRestoreCallBack.observer_guid]);
+                }
+
+                for (var exitCallbackObserverId in exitHandlersToRestore) {
+                    var exitEventHandler = exitHandlersToRestore[exitCallbackObserverId];
+                    me.addEventListener('exit', exitEventHandler);
+                }
+            };
+
+            // Need to set this here as it is possible to hide via native code "directly" by calling hide via the
+            // command infrastructure and not the hide method
+            hidden = true;
+
+            if (exitChannel.numHandlers > 0) {
+                for (var exitCallbackObserverId in exitChannel.handlers) {
+                    var exitEventHandler = exitChannel.handlers[exitCallbackObserverId];
+                    exitHandlersToRestore[exitCallbackObserverId] = exitChannel.handlers[exitCallbackObserverId];
+                    me.removeEventListener('exit', exitEventHandler);
+                }
+                me.addEventListener('exit', exitRestoreCallBack);
+            }
+        });
 
         for (var callbackName in callbacks) {
             me.addEventListener(callbackName, callbacks[callbackName]);
         }
 
-        exec(eventCallback, eventCallback, "InAppBrowser", "open", [lastUrl, lastWindowName, lastWindowFeatures]);
+         exec(eventHandler, eventHandler, "InAppBrowser", "open", [lastUrl, lastWindowName, lastWindowFeatures]);
     }
 
-    module.exports = function(strUrl, strWindowName, strWindowFeatures, callbacks) {
+    module.exports = function (strUrl, strWindowName, strWindowFeatures, callbacks) {
         // Don't catch calls that write to existing frames (e.g. named iframes).
         if (window.frames && window.frames[strWindowName]) {
             var origOpenFunc = modulemapper.getOriginalSymbol(window, 'open');
@@ -196,9 +213,10 @@
         }
 
         strUrl = urlutil.makeAbsolute(strUrl);
-        strWindowFeatures = strWindowFeatures || "";
 
-        if(strWindowName === '_system') {
+        strWindowFeatures = strWindowFeatures || '';
+
+        if (strWindowName === '_system') {
             // This is now separate as more-or-less fire and forget system browser was re-utilising
             // Code for blank/self. This caused problems with browser crashes etc.
             exec(null, null, "SystemBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
