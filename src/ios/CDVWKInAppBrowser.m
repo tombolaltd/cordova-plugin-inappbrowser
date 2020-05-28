@@ -40,7 +40,6 @@
 #define    JAVASCRIPT_BRIDGE_NAME @"tombola_javascript_bridge"
 
 #define    TOOLBAR_HEIGHT 44.0
-#define    STATUSBAR_HEIGHT 20.0
 #define    LOCATIONBAR_HEIGHT 21.0
 #define    FOOTER_HEIGHT ((TOOLBAR_HEIGHT) + (LOCATIONBAR_HEIGHT))
 
@@ -284,7 +283,7 @@ static CDVWKInAppBrowser* instance = nil;
     // use of beforeload event
     if([browserOptions.beforeload isKindOfClass:[NSString class]]){
         _beforeload = browserOptions.beforeload;
-    }else{
+    } else {
         _beforeload = @"yes";
     }
     _waitForBeforeload = ![_beforeload isEqualToString:@""];
@@ -442,7 +441,7 @@ static CDVWKInAppBrowser* instance = nil;
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
-    
+
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to hide IAB after it was closed.");
         return;
@@ -560,42 +559,42 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
  - (void)handleNativeResultWithString:(NSString*) jsonString {
-     NSString* result = [JavaScriptBridgeResonseParser parse:jsonString];
-     if (result == nil)
-     {
-         return;
-     }
-     [self sendBridgeResult:jsonString];
+    NSString* result = [JavaScriptBridgeResonseParser parse:jsonString];
+    if (result == nil)
+    {
+        return;
+    }
+    [self sendBridgeResult:jsonString];
  }
 
  - (void)handleNativeResult:(NSURL*) url {
-     if(![[url host] isEqualToString:@"poll"]) {
-         return;
-     }
+    if(![[url host] isEqualToString:@"poll"]) {
+        return;
+    }
 
-     NSString* scriptResult = [url path];
-     if ((scriptResult == nil) || ([scriptResult length] < 2)) {
-         return;
-     }
+    NSString* scriptResult = [url path];
+    if ((scriptResult == nil) || ([scriptResult length] < 2)) {
+        return;
+    }
 
 
-     NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
-     [self handleNativeResultWithString:jsonString];
+    NSString* jsonString = [scriptResult substringFromIndex:1]; //This is still the path of the URL, strip leading '/'
+    [self handleNativeResultWithString:jsonString];
 
  }
 
  - (BOOL)isWhitelistedCustomScheme:(NSString*)scheme {
-     NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
-     if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
-         // Preference missing.
-         return NO;
-     }
-     for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
-         if ([allowedScheme isEqualToString:scheme]) {
-             return YES;
-         }
-     }
-     return NO;
+    NSString* allowedSchemesPreference = [self settingForKey:@"AllowedSchemes"];
+    if (allowedSchemesPreference == nil || [allowedSchemesPreference isEqualToString:@""]) {
+        // Preference missing.
+        return NO;
+    }
+    for (NSString* allowedScheme in [allowedSchemesPreference componentsSeparatedByString:@","]) {
+        if ([allowedScheme isEqualToString:scheme]) {
+            return YES;
+        }
+    }
+    return NO;
  }
 
 /**
@@ -638,35 +637,35 @@ static CDVWKInAppBrowser* instance = nil;
         [self.cordovaPluginResultProxy sendErrorWithMessageAsDictionary:@{@"type":@"loaderror", @"url":[url absoluteString], @"code": @"-1", @"message": errorMessage}];
     }
 
-     // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
-     // and the path, if present, should be a JSON-encoded value to pass to the callback.
-     if ([[url scheme] isEqualToString:@"gap-iab"]) {
-         [self handleInjectedScriptCallBack: url];
-         shouldStart = NO;
-     
-     }
-     //test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
-     else if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
+    // See if the url uses the 'gap-iab' protocol. If so, the host should be the id of a callback to execute,
+    // and the path, if present, should be a JSON-encoded value to pass to the callback.
+    if ([[url scheme] isEqualToString:@"gap-iab"]) {
+        [self handleInjectedScriptCallBack: url];
+        shouldStart = NO;
+
+    }
+    // test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
+    else if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
          // Send a customscheme event.
          CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                                        messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
          [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
          [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
          shouldStart = NO;
-     }
-     // if is an app store link, let the system handle it, otherwise it fails to load it
-     else if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
+    }
+    // if is an app store link, let the system handle it, otherwise it fails to load it
+    else if ([[ url scheme] isEqualToString:@"itms-appss"] || [[ url scheme] isEqualToString:@"itms-apps"]) {
         [theWebView stopLoading];
         [self openInSystem:url];
         shouldStart = NO;
-     }
-     // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
-     // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
-     // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
-     else if([[url scheme] isEqualToString:@"gap-iab-native"]) {
-         [self handleNativeResult:url];
-         shouldStart = NO;
-     }
+    }
+    // See if the url uses the 'gap-iab-native' protocol. If so, the path should be a conform to
+    // gap-iab-native://actiontype/{{URL ENCODED JSON OBJECT}}
+    // Currently support: actiontype = poll, {{URL ENCODED JSON OBJECT}} = {InAppBrowserAction:'{{actionname}}'} where {{actionname}} is 'hide' or 'close'
+    else if([[url scheme] isEqualToString:@"gap-iab-native"]) {
+        [self handleNativeResult:url];
+        shouldStart = NO;
+    }
     else if (([self.cordovaPluginResultProxy hasCallbackId]) && isTopLevelNavigation) {
         // Send a loadstart event for each top-level navigation (includes redirects).
         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"loadstart", @"url":[url absoluteString]}];
@@ -698,10 +697,10 @@ static CDVWKInAppBrowser* instance = nil;
     if ([ScriptCallBackIdValidator isValid:scriptCallbackId]) {
         return;
     }
-    
+
     CordovaPluginResultProxy* scriptPluginResultProxy =[[CordovaPluginResultProxy alloc] initWithCommanDelegate:self.commandDelegate];
     scriptPluginResultProxy.callbackId = scriptCallbackId;
-    
+
     NSString* scriptResult = [url path];
     NSError* __autoreleasing error = nil;
 
@@ -819,7 +818,6 @@ static CDVWKInAppBrowser* instance = nil;
 {
     [self.cordovaPluginResultProxy sendTerminatingExitPluginResult];
 
-    
     [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:IAB_BRIDGE_NAME];
     [self.inAppBrowserViewController.configuration.userContentController removeScriptMessageHandlerForName:JAVASCRIPT_BRIDGE_NAME];
     self.inAppBrowserViewController.configuration = nil;
@@ -856,7 +854,7 @@ static CDVWKInAppBrowser* instance = nil;
 
 @synthesize currentURL;
 
-BOOL viewRenderedAtLeastOnce = FALSE;
+CGFloat lastReducedStatusBarHeight = 0.0;
 BOOL isExiting = FALSE;
 
 - (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
@@ -893,7 +891,7 @@ BOOL isExiting = FALSE;
 #if __has_include("CDVWKProcessPoolFactory.h")
     configuration.processPool = [[CDVWKProcessPoolFactory sharedFactory] sharedProcessPool];
 #endif
-    
+
     // Inject the handler here.
     JavaScriptBridgeInterface* handler = [[JavaScriptBridgeInterface alloc] initWithHandler:^(NSString* response){
         NSLog(@"%@", response);
@@ -914,7 +912,7 @@ BOOL isExiting = FALSE;
     }
 
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
-    
+
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
     [self.webView.configuration.userContentController  addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
 
@@ -1048,7 +1046,7 @@ BOOL isExiting = FALSE;
         [self.toolbar setItems:@[self.closeButton, flexibleSpaceButton, self.backButton, fixedSpaceButton, self.forwardButton]];
     }
 
-    self.view.backgroundColor = [UIColor grayColor];
+    self.view.backgroundColor = [UIColor clearColor];
     [self.view addSubview:self.toolbar];
     [self.view addSubview:self.addressLabel];
     [self.view addSubview:self.spinner];
@@ -1189,7 +1187,6 @@ BOOL isExiting = FALSE;
 
 - (void)viewDidLoad
 {
-    viewRenderedAtLeastOnce = FALSE;
     [super viewDidLoad];
 }
 
@@ -1276,14 +1273,6 @@ BOOL isExiting = FALSE;
 
 - (void)viewWillAppear:(BOOL)animated
 {
-    if (IsAtLeastiOSVersion(@"7.0") && !viewRenderedAtLeastOnce) {
-        viewRenderedAtLeastOnce = TRUE;
-        CGRect viewBounds = [self.webView bounds];
-        viewBounds.origin.y = STATUSBAR_HEIGHT;
-        viewBounds.size.height = viewBounds.size.height - STATUSBAR_HEIGHT;
-        self.webView.frame = viewBounds;
-        [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
-    }
     [self rePositionViews];
 
     [super viewWillAppear:animated];
@@ -1295,16 +1284,27 @@ BOOL isExiting = FALSE;
 // change that value.
 //
 - (float) getStatusBarOffset {
-    CGRect statusBarFrame = [[UIApplication sharedApplication] statusBarFrame];
-    float statusBarOffset = IsAtLeastiOSVersion(@"7.0") ? MIN(statusBarFrame.size.width, statusBarFrame.size.height) : 0.0;
-    return statusBarOffset;
+    return (float) IsAtLeastiOSVersion(@"7.0") ? [[UIApplication sharedApplication] statusBarFrame].size.height : 0.0;
 }
 
 - (void) rePositionViews {
-    if ([_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop]) {
-        [self.webView setFrame:CGRectMake(self.webView.frame.origin.x, TOOLBAR_HEIGHT, self.webView.frame.size.width, self.webView.frame.size.height)];
-        [self.toolbar setFrame:CGRectMake(self.toolbar.frame.origin.x, [self getStatusBarOffset], self.toolbar.frame.size.width, self.toolbar.frame.size.height)];
+    CGRect viewBounds = [self.webView bounds];
+    CGFloat statusBarHeight = [self getStatusBarOffset];
+    // orientation portrait or portraitUpsideDown: status bar is on the top and web view is to be aligned to the bottom of the status bar
+    // orientation landscapeLeft or landscapeRight: status bar height is 0 in but lets account for it in case things ever change in the future
+    viewBounds.origin.y = statusBarHeight;
+
+    // account for web view height portion that may have been reduced by a previous call to this method
+    viewBounds.size.height = viewBounds.size.height - statusBarHeight + lastReducedStatusBarHeight;
+    lastReducedStatusBarHeight = statusBarHeight;
+
+    if ((_browserOptions.toolbar) && ([_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop])) {
+        // if we have to display the toolbar on top of the web view, we need to account for its height
+        viewBounds.origin.y += TOOLBAR_HEIGHT;
+        self.toolbar.frame = CGRectMake(self.toolbar.frame.origin.x, statusBarHeight, self.toolbar.frame.size.width, self.toolbar.frame.size.height);
     }
+
+    self.webView.frame = viewBounds;
 }
 
 // Helper function to convert hex color string to UIColor
@@ -1435,14 +1435,17 @@ BOOL isExiting = FALSE;
     return 1 << UIInterfaceOrientationPortrait;
 }
 
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
-    if ((self.orientationDelegate != nil) && [self.orientationDelegate respondsToSelector:@selector(shouldAutorotateToInterfaceOrientation:)]) {
-        return [self.orientationDelegate shouldAutorotateToInterfaceOrientation:interfaceOrientation];
-    }
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context)
+    {
+        [self rePositionViews];
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context)
+    {
 
-    return YES;
+    }];
+
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 }
-
 
 @end //CDVWKInAppBrowserViewController
