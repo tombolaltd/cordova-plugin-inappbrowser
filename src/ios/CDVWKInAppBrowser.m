@@ -68,6 +68,8 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)pluginInitialize
 {
+    // Get the main cordova webview UIWindow(Not a fan of this but theoretically this should be the key UIWindow at this point)
+    cordovaWindow = [UIApplication sharedApplication].windows[0];
     instance = self;
     windowState = [WindowState sharedInstance];
     _previousStatusBarStyle = -1;
@@ -101,8 +103,11 @@ static CDVWKInAppBrowser* instance = nil;
     }
 
     [windowState close];
-    // Things are cleaned up in browserExit.
     [self.inAppBrowserViewController close];
+
+    // In order to remove base UIViewController implementations of orientation we must remove the UIWindow from the scene
+    [cordovaWindow makeKeyAndVisible];
+    tmpWindow = nil;
 }
 
 - (BOOL) isSystemUrl:(NSURL*)url
@@ -400,8 +405,7 @@ static CDVWKInAppBrowser* instance = nil;
         if (self.inAppBrowserViewController != nil) {
             self->_previousStatusBarStyle = -1;
             // Adding closing of the IAB inside of hiding to match the previous implementation with UIWebview
-            [self.inAppBrowserViewController close];
-            self.inAppBrowserViewController = nil;
+            [self close:nil];
         }
     });
 }
@@ -480,7 +484,7 @@ static CDVWKInAppBrowser* instance = nil;
 - (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper
 {
     // Ensure a message handler bridge is created to communicate with the CDVWKInAppBrowserViewController
-    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];    
+    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];
     [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w.JavaScriptBridgeInterfaceObject){w.JavaScriptBridgeInterfaceObject = {respond: function(response) { if(response !== '[]') { w.webkit.messageHandlers.%@.postMessage({data:response}); } } };}})(window)", JAVASCRIPT_BRIDGE_NAME]];
 
     if (jsWrapper != nil) {
