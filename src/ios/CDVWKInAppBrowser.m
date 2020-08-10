@@ -95,7 +95,6 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)close:(CDVInvokedUrlCommand*)command
 {
-
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"IAB.close() called but it was already closed.");
         return;
@@ -117,10 +116,11 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)open:(CDVInvokedUrlCommand*)command
 {
-	if(![windowState canOpen]){
-		return;
-	}
-	[windowState opening];
+    if (![windowState canOpen]) {
+        return;
+    }
+
+    [windowState opening];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
@@ -382,6 +382,7 @@ static CDVWKInAppBrowser* instance = nil;
     // Set tmpWindow to hidden to make main webview responsive to touch again
     // https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
     self->tmpWindow.hidden = YES;
+    [windowState hidden];
 
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to hide IAB after it was closed.");
@@ -398,10 +399,11 @@ static CDVWKInAppBrowser* instance = nil;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             self->_previousStatusBarStyle = -1;
-            [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:YES completion:nil];
+            // Adding closing of the IAB inside of hiding to match the previous implementation with UIWebview
+            [self.inAppBrowserViewController close];
+            self.inAppBrowserViewController = nil;
         }
     });
-    [windowState hidden];
 }
 
 - (void)openInSystem:(NSURL*)url
@@ -1237,7 +1239,7 @@ BOOL isExiting = FALSE;
         isExiting = TRUE;
         if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
             [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
-        } else {
+        } else if ([weakSelf parentViewController]) {
             [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
         }
     });
@@ -1380,7 +1382,6 @@ BOOL isExiting = FALSE;
     }
 
     [self.navigationDelegate didFinishNavigation:theWebView];
-    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView failedNavigation:(NSString*) delegateName withError:(nonnull NSError *)error{
@@ -1394,7 +1395,6 @@ BOOL isExiting = FALSE;
     self.addressLabel.text = NSLocalizedString(@"Load Error", nil);
 
     [self.navigationDelegate webView:theWebView didFailNavigation:error];
-    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(null_unspecified WKNavigation *)navigation withError:(nonnull NSError *)error
