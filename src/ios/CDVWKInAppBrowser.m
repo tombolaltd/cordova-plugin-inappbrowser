@@ -1243,7 +1243,7 @@ BOOL isExiting = FALSE;
         isExiting = TRUE;
         if ([weakSelf respondsToSelector:@selector(presentingViewController)]) {
             [[weakSelf presentingViewController] dismissViewControllerAnimated:YES completion:nil];
-        } else if ([weakSelf parentViewController]) {
+        } else {
             [[weakSelf parentViewController] dismissViewControllerAnimated:YES completion:nil];
         }
     });
