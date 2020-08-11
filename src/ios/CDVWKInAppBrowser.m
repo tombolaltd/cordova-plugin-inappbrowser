@@ -68,6 +68,8 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)pluginInitialize
 {
+    // Get the main cordova webview UIWindow(Not a fan of this but theoretically this should be the key UIWindow at this point)
+    cordovaWindow = [UIApplication sharedApplication].windows[0];
     instance = self;
     windowState = [WindowState sharedInstance];
     _previousStatusBarStyle = -1;
@@ -95,15 +97,17 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)close:(CDVInvokedUrlCommand*)command
 {
-
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"IAB.close() called but it was already closed.");
         return;
     }
 
     [windowState close];
-    // Things are cleaned up in browserExit.
     [self.inAppBrowserViewController close];
+
+    // In order to remove base UIViewController implementations of orientation we must remove the UIWindow from the scene
+    [cordovaWindow makeKeyAndVisible];
+    tmpWindow = nil;
 }
 
 - (BOOL) isSystemUrl:(NSURL*)url
@@ -117,10 +121,11 @@ static CDVWKInAppBrowser* instance = nil;
 
 - (void)open:(CDVInvokedUrlCommand*)command
 {
-	if(![windowState canOpen]){
-		return;
-	}
-	[windowState opening];
+    if (![windowState canOpen]) {
+        return;
+    }
+
+    [windowState opening];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
@@ -382,6 +387,7 @@ static CDVWKInAppBrowser* instance = nil;
     // Set tmpWindow to hidden to make main webview responsive to touch again
     // https://stackoverflow.com/questions/4544489/how-to-remove-a-uiwindow
     self->tmpWindow.hidden = YES;
+    [windowState hidden];
 
     if (self.inAppBrowserViewController == nil) {
         NSLog(@"Tried to hide IAB after it was closed.");
@@ -398,10 +404,10 @@ static CDVWKInAppBrowser* instance = nil;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             self->_previousStatusBarStyle = -1;
-            [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:YES completion:nil];
+            // Adding closing of the IAB inside of hiding to match the previous implementation with UIWebview
+            [self close:nil];
         }
     });
-    [windowState hidden];
 }
 
 - (void)openInSystem:(NSURL*)url
@@ -478,7 +484,7 @@ static CDVWKInAppBrowser* instance = nil;
 - (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper
 {
     // Ensure a message handler bridge is created to communicate with the CDVWKInAppBrowserViewController
-    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];    
+    [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w._cdvMessageHandler) {w._cdvMessageHandler = function(id,d){w.webkit.messageHandlers.%@.postMessage({d:d, id:id});}}})(window)", IAB_BRIDGE_NAME]];
     [self evaluateJavaScript: [NSString stringWithFormat:@"(function(w){if(!w.JavaScriptBridgeInterfaceObject){w.JavaScriptBridgeInterfaceObject = {respond: function(response) { if(response !== '[]') { w.webkit.messageHandlers.%@.postMessage({data:response}); } } };}})(window)", JAVASCRIPT_BRIDGE_NAME]];
 
     if (jsWrapper != nil) {
@@ -1380,7 +1386,6 @@ BOOL isExiting = FALSE;
     }
 
     [self.navigationDelegate didFinishNavigation:theWebView];
-    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView failedNavigation:(NSString*) delegateName withError:(nonnull NSError *)error{
@@ -1394,7 +1399,6 @@ BOOL isExiting = FALSE;
     self.addressLabel.text = NSLocalizedString(@"Load Error", nil);
 
     [self.navigationDelegate webView:theWebView didFailNavigation:error];
-    [windowState canOpen];
 }
 
 - (void)webView:(WKWebView*)theWebView didFailNavigation:(null_unspecified WKNavigation *)navigation withError:(nonnull NSError *)error

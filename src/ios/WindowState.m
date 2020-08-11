@@ -134,7 +134,7 @@ WindowStates currentState;
 
 - (bool)canOpen
 {
-    return currentState == Ready;
+    return currentState == Ready || currentState == Exited;
 }
 
 - (bool)isHidden

@@ -16,4 +16,5 @@
     - (bool)canOpen;
     - (bool)isHidden;
     - (bool)isUnhiding;
+
 @end

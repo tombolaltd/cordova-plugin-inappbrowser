@@ -29,6 +29,7 @@
 
 @interface CDVWKInAppBrowser : CDVPlugin {
     UIWindow * tmpWindow;
+    UIWindow * cordovaWindow;
 
     @private
     NSString* _beforeload;
