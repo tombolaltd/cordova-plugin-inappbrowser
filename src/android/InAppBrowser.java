@@ -556,7 +556,7 @@ public class InAppBrowser extends CordovaPlugin {
             if (dialog != null) {
                 dialog.show();
             }
-            if(WindowState.isHidden()) {
+            if(WindowState.isHidden() || WindowState.isUnhiding()) {
                 browserEventSender.unhidden();
                 WindowState.displayed();
             }
