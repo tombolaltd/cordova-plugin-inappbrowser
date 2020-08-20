@@ -236,7 +236,12 @@ static CDVWKInAppBrowser* instance = nil;
         if(appendUserAgent){
             userAgent = [userAgent stringByAppendingString: appendUserAgent];
         }
-        self.inAppBrowserViewController = [[CDVWKInAppBrowserViewController alloc] initWithUserAgent:userAgent prevUserAgent:[self.commandDelegate userAgent] browserOptions: browserOptions];
+        NSString* preferredContentMode = [self settingForKey:@"PreferredContentMode"];
+        self.inAppBrowserViewController = [[CDVWKInAppBrowserViewController alloc]
+            initWithUserAgent:userAgent
+            prevUserAgent:[self.commandDelegate userAgent]
+            preferredContentMode: preferredContentMode
+            browserOptions: browserOptions];
         self.inAppBrowserViewController.navigationDelegate = self;
 
         if ([self.viewController conformsToProtocol:@protocol(CDVScreenOrientationDelegate)]) {
@@ -863,8 +868,11 @@ static CDVWKInAppBrowser* instance = nil;
 CGFloat lastReducedStatusBarHeight = 0.0;
 BOOL isExiting = FALSE;
 
-- (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
-{
+- (id)initWithUserAgent:(NSString*)userAgent
+    prevUserAgent:(NSString*)prevUserAgent
+    preferredContentMode:(NSString*)contentMode
+    browserOptions:(CDVInAppBrowserOptions*) browserOptions {
+
     self = [super init];
     if (self != nil) {
         _userAgent = userAgent;
@@ -873,7 +881,7 @@ BOOL isExiting = FALSE;
         self.webViewUIDelegate = [[CDVWKInAppBrowserUIDelegate alloc] initWithTitle:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"]];
         [self.webViewUIDelegate setViewController:self];
 
-        [self createViews];
+        [self createViewsWithContentMode: contentMode];
     }
 
     return self;
@@ -883,8 +891,7 @@ BOOL isExiting = FALSE;
     //NSLog(@"dealloc");
 }
 
-- (void)createViews
-{
+- (void)createViewsWithContentMode: (NSString *) contentMode {
 
     // We create the views in code for primarily for ease of upgrades and not requiring an external .xib to be included
 
@@ -915,6 +922,17 @@ BOOL isExiting = FALSE;
         }
     }else{ // iOS 9
         configuration.mediaPlaybackRequiresUserAction = _browserOptions.mediaplaybackrequiresuseraction;
+    }
+
+    // preferred content mode for iPad's. Since iOS 13 iPad's default to desktop mode.
+    if (@available(iOS 13.0, *)) {
+        if ([contentMode isEqual: @"mobile"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeMobile;
+        } else if ([contentMode isEqual: @"desktop"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
+        } else if ([contentMode isEqual: @"auto"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeRecommended;
+        }
     }
 
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
