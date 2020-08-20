@@ -917,6 +917,17 @@ BOOL isExiting = FALSE;
         configuration.mediaPlaybackRequiresUserAction = _browserOptions.mediaplaybackrequiresuseraction;
     }
 
+    if (@available(iOS 13.0, *)) {
+        NSString *contentMode = [self settingForKey:@"PreferredContentMode"];
+        if ([contentMode isEqual: @"mobile"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeMobile;
+        } else if ([contentMode isEqual: @"desktop"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
+        } else if ([contentMode isEqual: @"auto"]) {
+            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeRecommended;
+        }
+    }
+
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
 
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
