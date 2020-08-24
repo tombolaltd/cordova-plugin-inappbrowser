@@ -104,10 +104,6 @@ static CDVWKInAppBrowser* instance = nil;
 
     [windowState close];
     [self.inAppBrowserViewController close];
-
-    // In order to remove base UIViewController implementations of orientation we must remove the UIWindow from the scene
-    [cordovaWindow makeKeyAndVisible];
-    tmpWindow = nil;
 }
 
 - (BOOL) isSystemUrl:(NSURL*)url
@@ -409,7 +405,9 @@ static CDVWKInAppBrowser* instance = nil;
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             self->_previousStatusBarStyle = -1;
-            // Adding closing of the IAB inside of hiding to match the previous implementation with UIWebview
+            // Adding closing of the IAB inside of hiding to fix orientation delegate overriding cordova webview
+            NSURL* blankURL = [NSURL URLWithString: @"about:blank"];
+            [self.inAppBrowserViewController navigateTo: blankURL];
             [self close:nil];
         }
     });
@@ -854,6 +852,10 @@ static CDVWKInAppBrowser* instance = nil;
     }
 
     _previousStatusBarStyle = -1; // this value was reset before reapplying it. caused statusbar to stay black on ios7
+
+     // In order to remove base UIViewController implementations of orientation we must remove the UIWindow from the scene
+    [self->cordovaWindow makeKeyAndVisible];
+    self->tmpWindow = nil;
 }
 
 @end //CDVWKInAppBrowser
@@ -938,7 +940,7 @@ BOOL isExiting = FALSE;
     self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:configuration];
 
     [self.webView.configuration.userContentController addScriptMessageHandler:self name:IAB_BRIDGE_NAME]; // This is the IAB handler for execute script
-    [self.webView.configuration.userContentController  addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
+    [self.webView.configuration.userContentController addScriptMessageHandler:handler name:JAVASCRIPT_BRIDGE_NAME]; // This is our handler for bridged guff.
 
     [self.view addSubview:self.webView];
     [self.view sendSubviewToBack:self.webView];
