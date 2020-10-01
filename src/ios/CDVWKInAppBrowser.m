@@ -656,10 +656,7 @@ static CDVWKInAppBrowser* instance = nil;
     // test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
     else if (![[url scheme] isEqualToString:@"http"] && ![[url scheme] isEqualToString:@"https"] && [self isWhitelistedCustomScheme:[url scheme]]) {
          // Send a customscheme event.
-         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                                       messageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
-         [pluginResult setKeepCallback:[NSNumber numberWithBool:YES]];
-         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+         [self.cordovaPluginResultProxy sendOKWithMessageAsDictionary:@{@"type":@"customscheme", @"url":[url absoluteString]}];
          shouldStart = NO;
     }
     // if is an app store link, let the system handle it, otherwise it fails to load it
