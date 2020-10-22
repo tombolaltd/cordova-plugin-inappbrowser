@@ -61,6 +61,6 @@ public final class UrlSecurityValidation {
     }
 
     public static Boolean shouldAllowNavigation(CordovaWebView webView, String url) {
-        return shouldAllow(webView, url, "shouldAllowNavigation");
+        return shouldAllow(webView, url, "shouldAllowRequest");
     }
 }

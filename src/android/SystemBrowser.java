@@ -61,8 +61,7 @@ public class SystemBrowser extends CordovaPlugin {
             }
             intent.putExtra(Browser.EXTRA_APPLICATION_ID, cordova.getActivity().getPackageName());
             // CB-10795: Avoid circular loops by preventing it from opening in the current app
-            // this.openExternalExcludeCurrentApp(intent);
-            this.cordova.getActivity().startActivity(intent);
+            this.openExternalExcludeCurrentApp(intent);
             return "";
         } catch (android.content.ActivityNotFoundException e) {
             Log.d(LOG_TAG, "InAppBrowser: Error loading url "+url+":"+ e.toString());
@@ -74,41 +73,41 @@ public class SystemBrowser extends CordovaPlugin {
      * Opens the intent, providing a chooser that excludes the current app to avoid
      * circular loops.
      */
-    // private void openExternalExcludeCurrentApp(Intent intent) {
-    //     String currentPackage = cordova.getActivity().getPackageName();
-    //     boolean hasCurrentPackage = false;
+    private void openExternalExcludeCurrentApp(Intent intent) {
+        String currentPackage = cordova.getActivity().getPackageName();
+        boolean hasCurrentPackage = false;
 
-    //     PackageManager pm = cordova.getActivity().getPackageManager();
-    //     List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
-    //     ArrayList<Intent> targetIntents = new ArrayList<Intent>();
+        PackageManager pm = cordova.getActivity().getPackageManager();
+        List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
+        ArrayList<Intent> targetIntents = new ArrayList<Intent>();
 
-    //     for (ResolveInfo ri : activities) {
-    //         if (!currentPackage.equals(ri.activityInfo.packageName)) {
-    //             Intent targetIntent = (Intent)intent.clone();
-    //             targetIntent.setPackage(ri.activityInfo.packageName);
-    //             targetIntents.add(targetIntent);
-    //         }
-    //         else {
-    //             hasCurrentPackage = true;
-    //         }
-    //     }
+        for (ResolveInfo ri : activities) {
+            if (!currentPackage.equals(ri.activityInfo.packageName)) {
+                Intent targetIntent = (Intent)intent.clone();
+                targetIntent.setPackage(ri.activityInfo.packageName);
+                targetIntents.add(targetIntent);
+            }
+            else {
+                hasCurrentPackage = true;
+            }
+        }
 
-    //     // If the current app package isn't a target for this URL, then use
-    //     // the normal launch behavior
-    //     if (hasCurrentPackage == false || targetIntents.size() == 0) {
-    //         this.cordova.getActivity().startActivity(intent);
-    //     }
-    //     // If there's only one possible intent, launch it directly
-    //     else if (targetIntents.size() == 1) {
-    //         this.cordova.getActivity().startActivity(targetIntents.get(0));
-    //     }
-    //     // Otherwise, show a custom chooser without the current app listed
-    //     else if (targetIntents.size() > 0) {
-    //         Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size()-1), null);
-    //         chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[] {}));
-    //         this.cordova.getActivity().startActivity(chooser);
-    // }
-    //     }
+        // If the current app package isn't a target for this URL, then use
+        // the normal launch behavior
+        if (hasCurrentPackage == false || targetIntents.size() == 0) {
+            this.cordova.getActivity().startActivity(intent);
+        }
+        // If there's only one possible intent, launch it directly
+        else if (targetIntents.size() == 1) {
+            this.cordova.getActivity().startActivity(targetIntents.get(0));
+        }
+        // Otherwise, show a custom chooser without the current app listed
+        else if (targetIntents.size() > 0) {
+            Intent chooser = Intent.createChooser(targetIntents.remove(targetIntents.size()-1), null);
+            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targetIntents.toArray(new Parcelable[] {}));
+            this.cordova.getActivity().startActivity(chooser);
+    }
+        }
 
 
 
