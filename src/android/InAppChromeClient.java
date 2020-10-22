@@ -19,7 +19,7 @@
 package org.apache.cordova.inappbrowser;
 
 import org.apache.cordova.CordovaWebView;
-import android.util.Log;
+import org.apache.cordova.LOG;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -28,7 +28,6 @@ import android.webkit.JsPromptResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.GeolocationPermissions.Callback;
 
 public class InAppChromeClient extends WebChromeClient {
@@ -38,7 +37,7 @@ public class InAppChromeClient extends WebChromeClient {
 
     private NativeScriptResultHandler nativeScriptResultHandler;
     private CordovaWebView webView;
-    private String LOG_TAG = "InAppChromeClient";
+    private String LOG_TAG = "InAppChromeClient.InAppChromeClient";
     private long MAX_QUOTA = 100 * 1024 * 1024;
 
     public InAppChromeClient(NativeScriptResultHandler nativeScriptResultHandler, CordovaWebView webView) {
@@ -60,7 +59,7 @@ public class InAppChromeClient extends WebChromeClient {
     public void onExceededDatabaseQuota(String url, String databaseIdentifier, long currentQuota, long estimatedSize,
             long totalUsedQuota, WebStorage.QuotaUpdater quotaUpdater)
     {
-        Log.d(LOG_TAG, String.format("onExceededDatabaseQuota estimatedSize: %1$d  currentQuota: %2$d  totalUsedQuota: %3$d", estimatedSize, currentQuota, totalUsedQuota));
+        LOG.d(LOG_TAG, "onExceededDatabaseQuota estimatedSize: %d  currentQuota: %d  totalUsedQuota: %d", estimatedSize, currentQuota, totalUsedQuota);
         quotaUpdater.updateQuota(MAX_QUOTA);
     }
 
@@ -111,50 +110,49 @@ public class InAppChromeClient extends WebChromeClient {
             return false;
         }
 
-        if (defaultValue.startsWith(GAP_PROTOCOL)) {
-            return handleJavascriptExecute(message, defaultValue, result);
+        if(defaultValue.startsWith(GAP_PROTOCOL)) {
+            handleJavascriptExecute(message, defaultValue, result);
+            return true;
         }
 
-        if (defaultValue.startsWith(GAP_NATIVE_PROTOCOL)){
-            return handleNativeJavascriptResponse(message, defaultValue, result);
+        if(defaultValue.startsWith(GAP_NATIVE_PROTOCOL)) {
+            handleNativeJavascriptResponse(message, defaultValue, result);
+            return true;
         }
 
         // Anything else with a gap: prefix should get this message
-        Log.w(LOG_TAG, "InAppBrowser does not support Cordova API calls: " + url + " " + defaultValue);
+        LOG.w(LOG_TAG, "InAppBrowser does not support Cordova API calls: " + url + " " + defaultValue);
         result.cancel();
         return true;
-
     }
 
-    private  boolean handleNativeJavascriptResponse(String message, String defaultValue, JsPromptResult result){
+    private void handleNativeJavascriptResponse(String message, String defaultValue, JsPromptResult result){
         if(message == null || message.length() == 0) {
             result.confirm("");
-            return true;
+            return;
         }
-
         String actionType = defaultValue.substring(GAP_NATIVE_PROTOCOL.length());
 
         if(!actionType.equals("poll")) {
-            result.confirm("");
-            Log.w(LOG_TAG, "InAppBrowser calls from native code with action type other than 'poll'" );
-            result.confirm("");
-            return true;
-        }
+            LOG.w(LOG_TAG, "InAppBrowser calls from native code with action type other than 'poll'" );
 
-        if(!nativeScriptResultHandler.handle(message)){
-            Log.w(LOG_TAG, "The action in the return of the passed poll function could not be parsed or did not have a known action");
+        } else if(!nativeScriptResultHandler.handle(message)){
+            LOG.w(LOG_TAG, "The action in the return of the passed 'poll', function could not be parsed or did not have a known action");
         }
 
         result.confirm("");
-        return true;
     }
 
-    private boolean handleJavascriptExecute(String message, String defaultValue, JsPromptResult result) {
+    private void handleJavascriptExecute(String message, String defaultValue, JsPromptResult result) {
         PluginResult scriptResult;
         String scriptCallbackId = defaultValue.substring(GAP_PROTOCOL.length());
-        if (!scriptCallbackId.startsWith("InAppBrowser")) {
-            return false;
+        if (!scriptCallbackId.matches("^InAppBrowser[0-9]{1,10}$")) {
+            // Anything else that doesn't look like InAppBrowser0123456789 should end up here
+            LOG.w(LOG_TAG, "InAppBrowser callback called with invalid callbackId : "+ scriptCallbackId);
+            result.cancel();
+            return;
         }
+
         if(message == null || message.length() == 0) {
             scriptResult = new PluginResult(PluginResult.Status.OK, new JSONArray());
         } else {
@@ -166,8 +164,6 @@ public class InAppChromeClient extends WebChromeClient {
         }
         this.webView.sendPluginResult(scriptResult, scriptCallbackId);
         result.confirm("");
-        return true;
-
     }
 
 }
