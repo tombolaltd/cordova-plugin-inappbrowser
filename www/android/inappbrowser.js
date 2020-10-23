@@ -80,10 +80,6 @@
             }
         };
 
-        me.bridge = function (objectName, bridgeFunction) {
-            exec(null, null, "InAppBrowser", "bridge", [objectName, bridgeFunction]);	
-        }
-
         me.addEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);

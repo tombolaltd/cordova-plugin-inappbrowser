@@ -1312,8 +1312,9 @@ public class InAppBrowser extends CordovaPlugin {
 
             // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
             if (isWhitelistedCustomScheme(url)) {
-                browserEventSender.customScheme(url);
-                return true;
+            //     browserEventSender.customScheme(url);
+            //     return true;
+                alert('whitelisted');
             }
 
             return false;
