@@ -80,6 +80,10 @@
             }
         };
 
+        me.bridge = function (objectName, bridgeFunction) {
+            exec(null, null, "InAppBrowser", "bridge", [objectName, bridgeFunction]);
+        }
+
         me.addEventListener = function (eventname, f) {
             if (eventname in me.channels) {
                 me.channels[eventname].subscribe(f);
@@ -115,8 +119,7 @@
         function eventHandler (event) {
             if (event && (event.type in me.channels)) {
                 if (event.type === 'beforeload') {
-                    // me.channels[event.type].fire(event, loadAfterBeforeload);
-                    me.channels[event.type].fire(event);
+                    me.channels[event.type].fire(event, loadAfterBeforeload);
                 } else {
                     me.channels[event.type].fire(event);
                 }
