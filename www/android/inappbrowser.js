@@ -113,9 +113,12 @@
         };
 
         function eventHandler (event) {
+            JOptionPane.showMessageDialog(null, "EVENT!!");
+            JOptionPane.showMessageDialog(null, event.eventname);
             if (event && (event.type in me.channels)) {
                 if (event.type === 'beforeload') {
-                    me.channels[event.type].fire(event, loadAfterBeforeload);
+                    // me.channels[event.type].fire(event, loadAfterBeforeload);
+                    me.channels[event.type].fire(event);
                 } else {
                     me.channels[event.type].fire(event);
                 }
