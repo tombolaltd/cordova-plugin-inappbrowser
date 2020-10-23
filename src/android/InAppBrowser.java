@@ -1126,33 +1126,33 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Checks to see if the custom scheme supplied is whitelisted
      */
-    private boolean isWhitelistedCustomScheme(String url) {
+    // private boolean isWhitelistedCustomScheme(String url) {
 
-        if (!url.matches("^[A-Za-z0-9+.-]*://.*?$")) {
-            return false;
-        }
+    //     if (!url.matches("^[A-Za-z0-9+.-]*://.*?$")) {
+    //         return false;
+    //     }
 
-        if (allowedSchemes == null) {
-            String allowed = preferences.getString("AllowedSchemes", null);
-            if(allowed == null) {
-                return false;
+    //     if (allowedSchemes == null) {
+    //         String allowed = preferences.getString("AllowedSchemes", null);
+    //         if(allowed == null) {
+    //             return false;
 
-            }
-            allowedSchemes = allowed.split(",");
-        }
+    //         }
+    //         allowedSchemes = allowed.split(",");
+    //     }
 
-        if (allowedSchemes.length == 0) {
-            return false;
-        }
+    //     if (allowedSchemes.length == 0) {
+    //         return false;
+    //     }
 
-        for (String scheme : allowedSchemes) {
-            if (url.startsWith(scheme)) {
-                return true;
-            }
-        }
+    //     for (String scheme : allowedSchemes) {
+    //         if (url.startsWith(scheme)) {
+    //             return true;
+    //         }
+    //     }
 
-        return false;
-    }
+    //     return false;
+    // }
 
 
     /**
@@ -1311,10 +1311,10 @@ public class InAppBrowser extends CordovaPlugin {
             }
 
             // Test for whitelisted custom scheme names like mycoolapp:// or twitteroauthresponse:// (Twitter Oauth Response)
-            if (isWhitelistedCustomScheme(url)) {
+            // if (isWhitelistedCustomScheme(url)) {
             //     browserEventSender.customScheme(url);
             //     return true;
-            }
+            // }
 
             return false;
         }
