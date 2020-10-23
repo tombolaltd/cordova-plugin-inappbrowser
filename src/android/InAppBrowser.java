@@ -1314,7 +1314,6 @@ public class InAppBrowser extends CordovaPlugin {
             if (isWhitelistedCustomScheme(url)) {
             //     browserEventSender.customScheme(url);
             //     return true;
-                alert('whitelisted');
             }
 
             return false;
