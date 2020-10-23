@@ -1263,18 +1263,19 @@ public class InAppBrowser extends CordovaPlugin {
          * @param method
          */
         public boolean shouldOverrideUrlLoading(String url, String method) {
+            System.out.println(url);
             boolean useBeforeload = false;
             String errorMessage = null;
 
             if (beforeload.equals("yes") && method == null) {
-                useBeforeload = true;
+                useBeforeload = false;
             } else if(beforeload.equals("yes")
                     //TODO handle POST requests then this condition can be removed:
                     && !method.equals("POST"))
             {
-                useBeforeload = true;
+                useBeforeload = false;
             } else if(beforeload.equals("get") && (method == null || method.equals("GET"))) {
-                useBeforeload = true;
+                useBeforeload = false;
             } else if(beforeload.equals("post") && (method == null || method.equals("POST"))) {
                 //TODO handle POST requests
                 errorMessage = "beforeload doesn't yet support POST requests";
