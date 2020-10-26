@@ -155,17 +155,17 @@ public class InAppBrowser extends CordovaPlugin {
                 JSONArray returnedArray = new JSONArray(scriptResult);
                 JSONObject commandObject = returnedArray.optJSONObject(0);
 
-                // if (commandObject == null) {
-                //     browserEventSender.bridgeResponse(scriptResult);
-                //     return true;
-                // }
+                if (commandObject == null) {
+                    browserEventSender.bridgeResponse(scriptResult);
+                    return true;
+                }
 
                 String action = commandObject.optString("InAppBrowserAction");
 
-                // if (action == null) {
-                //     browserEventSender.bridgeResponse(scriptResult);
-                //     return true;
-                // }
+                if (action == null) {
+                    browserEventSender.bridgeResponse(scriptResult);
+                    return true;
+                }
 
                 // if (action.equalsIgnoreCase("close")) {
                 //     closeDialog();
