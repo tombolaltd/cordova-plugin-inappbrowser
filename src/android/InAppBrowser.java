@@ -155,11 +155,6 @@ public class InAppBrowser extends CordovaPlugin {
                 JSONArray returnedArray = new JSONArray(scriptResult);
                 JSONObject commandObject = returnedArray.optJSONObject(0);
 
-                if (true) {
-                    browserEventSender.bridgeResponse(scriptResult);
-                    return true;
-                }
-
                 if (commandObject == null) {
                     browserEventSender.bridgeResponse(scriptResult);
                     return true;
@@ -1268,7 +1263,6 @@ public class InAppBrowser extends CordovaPlugin {
          * @param method
          */
         public boolean shouldOverrideUrlLoading(String url, String method) {
-            System.out.println(url);
             boolean useBeforeload = false;
             String errorMessage = null;
 
