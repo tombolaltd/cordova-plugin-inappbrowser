@@ -155,30 +155,27 @@ public class InAppBrowser extends CordovaPlugin {
                 JSONArray returnedArray = new JSONArray(scriptResult);
                 JSONObject commandObject = returnedArray.optJSONObject(0);
 
-                browserEventSender.bridgeResponse(scriptResult);
-                return true;
-
-                if (commandObject == null) {
+                // if (commandObject == null) {
                     browserEventSender.bridgeResponse(scriptResult);
                     return true;
-                }
+                // }
 
-                String action = commandObject.optString("InAppBrowserAction");
+                // String action = commandObject.optString("InAppBrowserAction");
 
-                if (action == null) {
-                    browserEventSender.bridgeResponse(scriptResult);
-                    return true;
-                }
+                // if (action == null) {
+                //     browserEventSender.bridgeResponse(scriptResult);
+                //     return true;
+                // }
 
-                if (action.equalsIgnoreCase("close")) {
-                    closeDialog();
-                    return true;
-                }
-                if (action.equalsIgnoreCase("hide")) {
-                    WindowState.hideToBlank();
-                    hideDialog(false);
-                    return true;
-                }
+                // if (action.equalsIgnoreCase("close")) {
+                //     closeDialog();
+                //     return true;
+                // }
+                // if (action.equalsIgnoreCase("hide")) {
+                //     WindowState.hideToBlank();
+                //     hideDialog(false);
+                //     return true;
+                // }
 
                 LOG.d(LOG_TAG, "The poll script return value looked like it should be handled natively, but was not formed correctly (unhandled action) - returning json directly to JS");
                 browserEventSender.bridgeResponse(scriptResult);
