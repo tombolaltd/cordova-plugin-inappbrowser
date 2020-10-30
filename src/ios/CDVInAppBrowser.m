@@ -37,11 +37,9 @@
 
 - (void)open:(CDVInvokedUrlCommand*)command
 {
-    printf('open');
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
     CDVInAppBrowserOptions* browserOptions = [CDVInAppBrowserOptions parseOptions:options];
     if(!self.wkwebviewavailable){
-        printf("load_error fired");
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:@{@"type":@"loaderror", @"message": @"wkwebview is mandatory but but no plugin that supplies a WKWebView engine is present"}] callbackId:command.callbackId];
         return;
     }
