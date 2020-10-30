@@ -791,14 +791,14 @@ static CDVWKInAppBrowser* instance = nil;
         return;
     }
 
-    if( [error code] == NSURLErrorCancelled ) {
-        // NSURLErrorCancelled (code 999 ) is considered benign: it happens when the page is navigated away from
-        // while loading - as happens in Italy when waiting for the payment provider to acknowledge completion
-        // See http://iosdeveloperzone.com/tag/nsurlerrorcancelled/ "Suppressing Spurious Error Messages" for
-        // Explanation. Few sources cite this particular error as benign.
-        NSLog(@"IGNORED ERROR: %@", error); // Still log though!
-        return;
-    }
+    // if( [error code] == NSURLErrorCancelled ) {
+    //     // NSURLErrorCancelled (code 999 ) is considered benign: it happens when the page is navigated away from
+    //     // while loading - as happens in Italy when waiting for the payment provider to acknowledge completion
+    //     // See http://iosdeveloperzone.com/tag/nsurlerrorcancelled/ "Suppressing Spurious Error Messages" for
+    //     // Explanation. Few sources cite this particular error as benign.
+    //     NSLog(@"IGNORED ERROR: %@", error); // Still log though!
+    //     return;
+    // }
 
     NSString* url = [theWebView.URL absoluteString];
     if(url == nil){
