@@ -169,34 +169,34 @@
             }
         }
 
-        backChannels['preventexitonhide'].subscribe(function(){
-            var exitHandlersToRestore = {},
-            exitChannel = me.channels['exit'],
-            exitRestoreCallBack = function(){
-                // This cleans up the current handler
-                if (exitRestoreCallBack.observer_guid) {
-                    me.removeEventListener('exit', exitChannel.handlers[exitRestoreCallBack.observer_guid]);
-                }
+        // backChannels['preventexitonhide'].subscribe(function(){
+        //     var exitHandlersToRestore = {},
+        //     exitChannel = me.channels['exit'],
+        //     exitRestoreCallBack = function(){
+        //         // This cleans up the current handler
+        //         if (exitRestoreCallBack.observer_guid) {
+        //             me.removeEventListener('exit', exitChannel.handlers[exitRestoreCallBack.observer_guid]);
+        //         }
 
-                for (var exitCallbackObserverId in exitHandlersToRestore) {
-                    var exitEventHandler = exitHandlersToRestore[exitCallbackObserverId];
-                    me.addEventListener('exit', exitEventHandler);
-                }
-            };
+        //         for (var exitCallbackObserverId in exitHandlersToRestore) {
+        //             var exitEventHandler = exitHandlersToRestore[exitCallbackObserverId];
+        //             me.addEventListener('exit', exitEventHandler);
+        //         }
+        //     };
 
-            // Need to set this here as it is possible to hide via native code "directly" by calling hide via the
-            // command infrastructure and not the hide method
-            hidden = true;
+        //     // Need to set this here as it is possible to hide via native code "directly" by calling hide via the
+        //     // command infrastructure and not the hide method
+        //     hidden = true;
 
-            if (exitChannel.numHandlers > 0) {
-                for (var exitCallbackObserverId in exitChannel.handlers) {
-                    var exitEventHandler = exitChannel.handlers[exitCallbackObserverId];
-                    exitHandlersToRestore[exitCallbackObserverId] = exitChannel.handlers[exitCallbackObserverId];
-                    me.removeEventListener('exit', exitEventHandler);
-                }
-                me.addEventListener('exit', exitRestoreCallBack);
-            }
-        });
+        //     if (exitChannel.numHandlers > 0) {
+        //         for (var exitCallbackObserverId in exitChannel.handlers) {
+        //             var exitEventHandler = exitChannel.handlers[exitCallbackObserverId];
+        //             exitHandlersToRestore[exitCallbackObserverId] = exitChannel.handlers[exitCallbackObserverId];
+        //             me.removeEventListener('exit', exitEventHandler);
+        //         }
+        //         me.addEventListener('exit', exitRestoreCallBack);
+        //     }
+        // });
 
         for (var callbackName in callbacks) {
             me.addEventListener(callbackName, callbacks[callbackName]);
