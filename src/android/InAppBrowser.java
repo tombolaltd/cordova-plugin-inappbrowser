@@ -822,6 +822,11 @@ public class InAppBrowser extends CordovaPlugin {
             @SuppressLint("NewApi")
             public void run() {
 
+                // BCW-3720 - android.view.WindowManager$BadTokenException thrown
+                if (cordova.getActivity().isFinishing()) {
+                    return;
+                }
+
                 // CB-6702 InAppBrowser hangs when opening more than one instance
                 if (dialog != null) {
                     dialog.dismiss();
@@ -1103,7 +1108,13 @@ public class InAppBrowser extends CordovaPlugin {
 
                 if (dialog != null) {
                     dialog.setContentView(main);
-                    dialog.show();
+
+                    // BCW-3720 - android.view.WindowManager$BadTokenException thrown
+                    try {
+                        dialog.show();
+                    } catch (BadTokenException e) {
+                    }
+
                     dialog.getWindow().setAttributes(lp);
                 }
                 // the goal of openhidden is to load the url and not display it
