@@ -462,7 +462,6 @@ static CDVWKInAppBrowser* instance = nil;
 }
 
 - (void)update:(CDVInvokedUrlCommand*)command {
-    [[CDVWKInAppBrowser getInstance] update:command];
     NSString* url = [command argumentAtIndex:0];
     NSString* target = [command argumentAtIndex:1 withDefault:kInAppBrowserTargetSelf];
     NSString* options = [command argumentAtIndex:2 withDefault:@"" andClass:[NSString class]];
