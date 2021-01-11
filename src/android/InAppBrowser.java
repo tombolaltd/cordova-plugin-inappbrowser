@@ -76,6 +76,8 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.StringTokenizer;
 
+import static android.webkit.WebView.RENDERER_PRIORITY_IMPORTANT;
+
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
 
@@ -260,18 +262,18 @@ public class InAppBrowser extends CordovaPlugin {
         }
         if (action.equals("injectScriptFile")) {
             ResourceInjector.injectScriptFile(inAppWebView,
-                cordova.getActivity(),
-                args.getString(0),
-                args.getBoolean(1),
-                callbackContext.getCallbackId());
+                    cordova.getActivity(),
+                    args.getString(0),
+                    args.getBoolean(1),
+                    callbackContext.getCallbackId());
             return true;
         }
         if (action.equals("injectStyleCode")) {
             ResourceInjector.injectStyleCode(inAppWebView,
-                cordova.getActivity(),
-                args.getString(0),
-                args.getBoolean(1),
-                callbackContext.getCallbackId());
+                    cordova.getActivity(),
+                    args.getString(0),
+                    args.getBoolean(1),
+                    callbackContext.getCallbackId());
             return true;
         }
         if (action.equals("injectStyleFile")) {
@@ -500,6 +502,8 @@ public class InAppBrowser extends CordovaPlugin {
                 } else {
                     //unhidden event & reset of hidden flag done in onPageFinished which results from this navigate ...
                     WindowState.reopenOnNextPageFinished();
+                    inAppWebView.setVisibility(View.INVISIBLE);
+                    showDialogue();
                     navigate(url);
                 }
             }
@@ -538,6 +542,8 @@ public class InAppBrowser extends CordovaPlugin {
             } else {
                 if (show) {
                     WindowState.reopenOnNextPageFinished();
+                    inAppWebView.setVisibility(View.INVISIBLE);
+                    showDialogue();
                 }
 
                 navigate(url);
@@ -546,11 +552,11 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     /**
-    * Shows the dialog in the standard way
-    *
-    * @param
-    * @return
-    */
+     * Shows the dialog in the standard way
+     *
+     * @param
+     * @return
+     */
     private void showDialogue() {
         this.cordova.getActivity().runOnUiThread(() -> {
             if (dialog != null) {
@@ -966,6 +972,9 @@ public class InAppBrowser extends CordovaPlugin {
 
                 // WebView
                 inAppWebView = new WebView(cordova.getActivity());
+                // NOTE: Due to how we manage the webview (Keep hidden/cached until needed)
+                // we don't want the renderer being destroyed unexpectedly
+                inAppWebView.setRendererPriorityPolicy(RENDERER_PRIORITY_IMPORTANT, false);
                 inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 inAppWebView.setId(Integer.valueOf(6));
                 // File Chooser Implemented ChromeClient
@@ -1009,7 +1018,6 @@ public class InAppBrowser extends CordovaPlugin {
                         // run startActivityForResult
                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE);
                     }
-
                 });
                 currentClient = new InAppBrowserClient(thatWebView, edittext, beforeload);
                 inAppWebView.setWebViewClient(currentClient);
@@ -1111,6 +1119,7 @@ public class InAppBrowser extends CordovaPlugin {
                 if (openWindowHidden && dialog != null) {
                     dialog.hide();
                 }
+                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
             }
         };
         this.cordova.getActivity().runOnUiThread(runnable);
@@ -1412,7 +1421,11 @@ public class InAppBrowser extends CordovaPlugin {
 
             if (WindowState.shouldReopenOnNextPageFinished()) {
                 WindowState.resetReopenOnNextPageFinished();
-                showDialogue();
+                // https://stackoverflow.com/a/5172952
+                // https://stackoverflow.com/questions/10592998/android-webview-not-calling-onpagefinished-when-url-redirects
+                // This is fired on every web Frame load and can fail to be invoked if you have redirections before becoming visible
+                // We have changed the functionality to use .setVisibility instead of .show to fix this
+                inAppWebView.setVisibility(View.VISIBLE);
             }
 
 
