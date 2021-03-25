@@ -285,7 +285,7 @@ public class InAppBrowser extends CordovaPlugin {
             return true;
         }
         if (action.equals("show")) {
-            showDialogue();
+            showDialogue(false);
             return true;
         }
         if (action.equals("hide")) {
@@ -480,7 +480,7 @@ public class InAppBrowser extends CordovaPlugin {
     private void unHideDialog(final String url) {
         if (url == null || url.equals("") || url.equals(NULL)) {
             addBridgeInterface();
-            showDialogue();
+            showDialogue(false);
             return;
         }
 
@@ -498,12 +498,11 @@ public class InAppBrowser extends CordovaPlugin {
 
                 if (inAppWebView.getUrl().equals(url)) {
                     //unhidden event & reset of hidden flag done in this method ...
-                    showDialogue();
+                    showDialogue(false);
                 } else {
                     //unhidden event & reset of hidden flag done in onPageFinished which results from this navigate ...
                     WindowState.reopenOnNextPageFinished();
-                    inAppWebView.setVisibility(View.INVISIBLE);
-                    showDialogue();
+                    showDialogue(true);
                     navigate(url);
                 }
             }
@@ -515,7 +514,7 @@ public class InAppBrowser extends CordovaPlugin {
             addBridgeInterface();
 
             if (show) {
-                showDialogue();
+                showDialogue(false);
             }
 
             return;
@@ -530,7 +529,7 @@ public class InAppBrowser extends CordovaPlugin {
 
             if (inAppWebView.getUrl().equals(url)) {
                 if (show) {
-                    showDialogue();
+                    showDialogue(false);
                 } else {
                     browserEventSender.loadStop(url);
                     if(WindowState.isHiding()) {
@@ -542,8 +541,7 @@ public class InAppBrowser extends CordovaPlugin {
             } else {
                 if (show) {
                     WindowState.reopenOnNextPageFinished();
-                    inAppWebView.setVisibility(View.INVISIBLE);
-                    showDialogue();
+                    showDialogue(true);
                 }
 
                 navigate(url);
@@ -554,12 +552,16 @@ public class InAppBrowser extends CordovaPlugin {
     /**
      * Shows the dialog in the standard way
      *
-     * @param
+     * @param invisible
      * @return
      */
-    private void showDialogue() {
+    private void showDialogue(Boolean invisible) {
         this.cordova.getActivity().runOnUiThread(() -> {
             if (dialog != null) {
+                if (invisible) {
+                    inAppWebView.setVisibility(View.INVISIBLE);
+                    dialog.getWindow().setFlags(LayoutParams.FLAG_NOT_TOUCHABLE, LayoutParams.FLAG_NOT_TOUCHABLE);
+                }
                 dialog.show();
             }
             if(WindowState.isHidden() || WindowState.isUnhiding()) {
@@ -568,6 +570,11 @@ public class InAppBrowser extends CordovaPlugin {
             }
         });
         pluginResultSender.ok();
+    }
+
+    private void makeDialogueVisible() {
+        inAppWebView.setVisibility(View.VISIBLE);
+        dialog.getWindow().clearFlags(LayoutParams.FLAG_NOT_TOUCHABLE);
     }
 
     /**
@@ -1425,7 +1432,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // https://stackoverflow.com/questions/10592998/android-webview-not-calling-onpagefinished-when-url-redirects
                 // This is fired on every web Frame load and can fail to be invoked if you have redirections before becoming visible
                 // We have changed the functionality to use .setVisibility instead of .show to fix this
-                inAppWebView.setVisibility(View.VISIBLE);
+                makeDialogueVisible();
             }
 
 
