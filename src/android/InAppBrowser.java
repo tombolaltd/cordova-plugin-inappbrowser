@@ -551,6 +551,9 @@ public class InAppBrowser extends CordovaPlugin {
 
     /**
      * Shows the dialog in the standard way
+     * invisible boolean parameter allows
+     * you to set the content of the dialogue invisible
+     * useful to get items out of backgrounded state
      *
      * @param invisible
      * @return
@@ -558,6 +561,8 @@ public class InAppBrowser extends CordovaPlugin {
     private void showDialogue(Boolean invisible) {
         this.cordova.getActivity().runOnUiThread(() -> {
             if (dialog != null) {
+                // This should only be used to bring the Webview out of a backgrounded state
+                // to allow it to load if it has been backgrounded for too long.
                 if (invisible) {
                     inAppWebView.setVisibility(View.INVISIBLE);
                     dialog.getWindow().setFlags(LayoutParams.FLAG_NOT_TOUCHABLE, LayoutParams.FLAG_NOT_TOUCHABLE);
@@ -572,6 +577,9 @@ public class InAppBrowser extends CordovaPlugin {
         pluginResultSender.ok();
     }
 
+    /**
+     * Re-enables interaction and sets webview to visible
+     */
     private void makeDialogueVisible() {
         inAppWebView.setVisibility(View.VISIBLE);
         dialog.getWindow().clearFlags(LayoutParams.FLAG_NOT_TOUCHABLE);
@@ -1431,7 +1439,7 @@ public class InAppBrowser extends CordovaPlugin {
                 // https://stackoverflow.com/a/5172952
                 // https://stackoverflow.com/questions/10592998/android-webview-not-calling-onpagefinished-when-url-redirects
                 // This is fired on every web Frame load and can fail to be invoked if you have redirections before becoming visible
-                // We have changed the functionality to use .setVisibility instead of .show to fix this
+                // We have changed the functionality to use .setVisibility instead of .show to fix both this and the idle background issues
                 makeDialogueVisible();
             }
 
