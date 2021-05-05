@@ -130,7 +130,7 @@
         for (var callbackName in callbacks) {
             me.addEventListener(callbackName, callbacks[callbackName]);
         }
- 
+
         exec(eventHandler, eventHandler, "InAppBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
 
     }
