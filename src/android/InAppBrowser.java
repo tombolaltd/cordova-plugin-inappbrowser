@@ -554,12 +554,16 @@ public class InAppBrowser extends CordovaPlugin {
     */
     private void showDialogue() {
         this.cordova.getActivity().runOnUiThread(() -> {
-            if (dialog != null) {
-                dialog.show();
-            }
-            if(WindowState.isHidden() || WindowState.isUnhiding()) {
-                browserEventSender.unhidden();
-                WindowState.displayed();
+            try {
+                if (dialog != null) {
+                    dialog.show();
+                }
+                if (WindowState.isHidden() || WindowState.isUnhiding()) {
+                    browserEventSender.unhidden();
+                    WindowState.displayed();
+                }
+            } catch(BadTokenException e) {
+                LOG.e(LOG_TAG, "Handled Error attempting to open the IAB in showDialogue");
             }
         });
         pluginResultSender.ok();
@@ -583,7 +587,14 @@ public class InAppBrowser extends CordovaPlugin {
                     // NB: wait for about:blank before dismissing
                     public void onPageFinished(WebView view, String url) {
                         if (dialog != null) {
-                            dialog.dismiss();
+                            try {
+                                // Fix: If view is not on the window it can crash the app
+                                // https://stackoverflow.com/questions/22924825/view-not-attached-to-window-manager-crash
+                                if (!cordova.getActivity().isFinishing()) {
+                                    dialog.dismiss();
+                                };
+                            } catch (IllegalArgumentException e) {}
+
                             dialog = null;
                         }
                     }
@@ -823,13 +834,15 @@ public class InAppBrowser extends CordovaPlugin {
             @SuppressLint("NewApi")
             public void run() {
 
+                // Fix: If view is not on the window it can crash the app
+                // https://stackoverflow.com/questions/22924825/view-not-attached-to-window-manager-crash
                 // BCW-3720 - android.view.WindowManager$BadTokenException thrown
                 if (cordova.getActivity().isFinishing()) {
                     return;
                 }
 
                 // CB-6702 InAppBrowser hangs when opening more than one instance
-                if (dialog != null) {
+                if (dialog != null && !cordova.getActivity().isFinishing()) {
                     dialog.dismiss();
                 };
 
@@ -1114,6 +1127,7 @@ public class InAppBrowser extends CordovaPlugin {
                     try {
                         dialog.show();
                     } catch (BadTokenException e) {
+                        LOG.e(LOG_TAG, "Handled Error attempting to open the IAB in run");
                     }
 
                     dialog.getWindow().setAttributes(lp);
